@@ -1,0 +1,82 @@
+--------------------------------------------------------------------------------
+INTRODUCTION
+--------------------------------------------------------------------------------
+
+This is an experimental implementation of a simple visual programming
+environment for the procedural generation and synthesis of musical sequences.
+It is a dialect of the ORCA programming language, originally written by
+Devine Lu Linvega:
+
+https://100r.co/site/orca.html
+
+The goal of the project is to extend ORCA's computational model with a few
+basic facilities for doing synthesis directly in the environment, without
+dependence on another program or piece of hardware. This means that, unlike the
+audio from an external synth controlled by ORCA, our synthesized audio will
+have sample-accurate timing. For most purposes, this is probably not a
+noticeable difference, but I found it an interesting programming exercise.
+
+In all other respects, this version is extremely limited, and will likely
+remain that way. I am writing it as a learning exercise, not to compete with
+the original ORCA implementation.
+
+The only supported platform is 64bit Windows. There are no plans to port it to
+other platforms.
+
+--------------------------------------------------------------------------------
+OPERATORS
+--------------------------------------------------------------------------------
+
+(conditional)     a = b                             output bang when a is equal to b
+(clock)           rate C modulus                    output clock modulo modulus
+(delay)           rate D modulus                    output bang when equivalent clock would output zero
+(random)          R modulus                         output random value modulo modulus
+(add)             a + b                             output addition
+(subtract)        a - b                             output subtraction
+(multiply)        a * b                             output multiplication
+(generate)        x y G value                       write value at relative coordinate (x, y)
+(scale)           # n                               output semitone value of nth note of major scale
+(synthesizer)     ~ octave pitch duration volume    synthesize sine wave
+
+Many of the operators have slightly different semantics from their ORCA
+counterparts, so do not expect them to behave equivalently.
+
+--------------------------------------------------------------------------------
+KEY BINDINGS
+--------------------------------------------------------------------------------
+
+move cursor     : arrow keys
+delete value    : backspace
+conditional     : =
+clock           : c
+delay           : d
+random          : r
+add             : +
+subtract        : -
+multiply        : *
+generate        : g
+scale           : #
+synthesizer     : ~
+literal         : 0 through 9, or shift-letter
+
+--------------------------------------------------------------------------------
+BUILDING FROM SOURCE
+--------------------------------------------------------------------------------
+
+You will need the MSVC developer command prompt:
+https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line
+
+ninja:
+https://ninja-build.org/
+
+xxd, which is distributed with Vim for windows:
+https://www.vim.org/
+
+Then run `ninja` in the project root to compile.
+
+--------------------------------------------------------------------------------
+AUTHOR
+--------------------------------------------------------------------------------
+
+River Dillon
+river@k-monk.org

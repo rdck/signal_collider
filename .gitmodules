@@ -1,0 +1,9 @@
+[submodule "vendor/gustavsson"]
+	path = vendor/gustavsson
+	url = https://github.com/rdck/gustavsson.git
+[submodule "vendor/stb"]
+	path = vendor/stb
+	url = https://github.com/rdck/stb.git
+[submodule "vendor/handmade_math"]
+	path = vendor/handmade_math
+	url = https://github.com/rdck/handmade_math.git

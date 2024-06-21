@@ -9,15 +9,20 @@ Devine Lu Linvega:
 
 https://100r.co/site/orca.html
 
-The goal of the project is to extend ORCA's computational model with a few
-basic facilities for doing synthesis directly in the environment, without
-dependence on another program or piece of hardware. This means that, unlike the
-audio from an external synth controlled by ORCA, our synthesized audio will
-have sample-accurate timing. For most purposes, this is probably not a
-noticeable difference, but I found it an interesting programming exercise.
+You may watch a short video introduction to the project here:
 
-In all other respects, this version is extremely limited, and will likely
-remain that way. I am writing it as a learning exercise, not to compete with
+https://youtu.be/d8eC9he8iZM
+
+The goal of the project is to extend ORCA's computational model with a few
+basic facilities for doing synthesis and signal processing directly in the
+environment, without dependence on another program or piece of hardware. This
+means that, unlike the audio from an external synth controlled by ORCA, the
+produced audio will have sample-accurate timing. For most purposes, this is
+probably not a noticeable difference, but I found it an interesting programming
+exercise.
+
+This implementation was done from scratch, without reference to the original
+ORCA source code. I am writing it as a learning exercise, not to compete with
 the original ORCA implementation.
 
 The only supported platform is 64bit Windows. There are no plans to port it to

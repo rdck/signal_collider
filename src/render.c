@@ -1,51 +1,53 @@
 #include "render.h"
 #include "display.h"
 #include "sim.h"
+#include "view.h"
 #include "font.ttf.h"
 #include "stb_truetype.h"
 
-#define Render_ASCII_X 16
-#define Render_ASCII_Y 8
-#define Render_EMPTY_CHARACTER '.'
+#define ASCII_X 16
+#define ASCII_Y 8
+#define EMPTY_CHARACTER '.'
 
-#define Render_COLOR_LITERAL    0xFFFF8080
-#define Render_COLOR_OPERATOR   0xFFFFFFFF
-#define Render_COLOR_EMPTY      0x80FFFFFF
+#define COLOR_LITERAL    0xFFFF8080
+#define COLOR_OPERATOR   0xFFFFFFFF
+#define COLOR_EMPTY      0x80FFFFFF
+#define COLOR_CURSOR     0x40FFFFFF
 
-static V2S Render_dimensions = {0};
+static Index render_index = INDEX_NONE;
+static V2S canvas_dimensions = {0};
+static TextureID texture_white = 0;
+static TextureID texture_font = 0;
 
-static Display_TextureID Render_white = 0;
-static Display_TextureID Render_font_atlas = 0;
-
-static Char Render_char_table[Model_VALUE_CARDINAL] = {
-  [ Model_VALUE_LITERAL       ] = 0,
-  [ Model_VALUE_BANG          ] = '*',
-  [ Model_VALUE_IF            ] = '=',
-  [ Model_VALUE_CLOCK         ] = 'C',
-  [ Model_VALUE_DELAY         ] = 'D',
-  [ Model_VALUE_RANDOM        ] = 'R',
-  [ Model_VALUE_ADD           ] = '+',
-  [ Model_VALUE_SUB           ] = '-',
-  [ Model_VALUE_MUL           ] = '*',
-  [ Model_VALUE_GENERATE      ] = '!',
-  [ Model_VALUE_SCALE         ] = '#',
-  [ Model_VALUE_SYNTH         ] = '~',
+static Char representation_table[VALUE_CARDINAL] = {
+  [ VALUE_LITERAL       ] = 0,
+  [ VALUE_BANG          ] = '*',
+  [ VALUE_IF            ] = '=',
+  [ VALUE_CLOCK         ] = 'C',
+  [ VALUE_DELAY         ] = 'D',
+  [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_ADD           ] = '+',
+  [ VALUE_SUB           ] = '-',
+  [ VALUE_MUL           ] = '*',
+  [ VALUE_GENERATE      ] = '!',
+  [ VALUE_SCALE         ] = '#',
+  [ VALUE_SYNTH         ] = '~',
 };
 
-static V2S Render_tile_size(V2S canvas)
+static V2S tile_size(V2S canvas)
 {
-  return v2s_div(canvas, v2s(Model_X, Model_Y));
+  return v2s_div(canvas, v2s(MODEL_X, MODEL_Y));
 }
 
-static V2S Render_atlas_coordinate(Char c)
+static V2S font_coordinate(Char c)
 {
   V2S out;
-  out.x = c % Render_ASCII_X;
-  out.y = c / Render_ASCII_X;
+  out.x = c % ASCII_X;
+  out.y = c / ASCII_X;
   return out;
 }
 
-static Void Render_load_font(S32 size)
+static Void load_font(S32 size)
 {
 
   stbtt_fontinfo font = {0};
@@ -66,8 +68,8 @@ static Void Render_load_font(S32 size)
 #endif
 
   const S32 char_area = size * size;
-  Byte* const atlas = malloc(Render_ASCII_X * Render_ASCII_Y * char_area);
-  memset(atlas, 0, Render_ASCII_X * Render_ASCII_Y * char_area);
+  Byte* const atlas = malloc(ASCII_X * ASCII_Y * char_area);
+  memset(atlas, 0, ASCII_X * ASCII_Y * char_area);
 
   S32 w = 0;
   S32 h = 0;
@@ -86,21 +88,21 @@ static Void Render_load_font(S32 size)
     ASSERT(h <= size);
 
     const V2S p = {
-      c % Render_ASCII_X,
-      c / Render_ASCII_X,
+      c % ASCII_X,
+      c / ASCII_X,
     };
     const S32 descent_pixels = (S32) (scale * descent);
     for (S32 y = 0; y < h; y++) {
       for (S32 x = 0; x < w; x++) {
         const S32 x0 = p.x * size + xoff + x;
         const S32 y0 = p.y * size + yoff + y + descent_pixels;
-        const Bool xr = x0 < Render_ASCII_X * size;
-        const Bool yr = y0 < Render_ASCII_Y * size;
+        const Bool xr = x0 < ASCII_X * size;
+        const Bool yr = y0 < ASCII_Y * size;
         if (xr && yr) {
-          // const Index yy = y0 * (Render_ASCII_X * size);
-          ASSERT(y0 < Render_ASCII_Y * size);
-          ASSERT(x0 < Render_ASCII_X * size);
-          atlas[y0 * (Render_ASCII_X * size) + x0] = bitmap[y * w + x];
+          // const Index yy = y0 * (ASCII_X * size);
+          ASSERT(y0 < ASCII_Y * size);
+          ASSERT(x0 < ASCII_X * size);
+          atlas[y0 * (ASCII_X * size) + x0] = bitmap[y * w + x];
         }
       }
     }
@@ -109,31 +111,31 @@ static Void Render_load_font(S32 size)
 
   }
 
-#ifdef Render_ATLAS_LINES
-  for (Index y = 0; y < Render_ASCII_Y; y++) {
-    for (Index x = 0; x < Render_ASCII_X * size; x++) {
+#ifdef ATLAS_LINES
+  for (Index y = 0; y < ASCII_Y; y++) {
+    for (Index x = 0; x < ASCII_X * size; x++) {
       const Index y0 = y * size;
-      const Index stride = Render_ASCII_X * size;
+      const Index stride = ASCII_X * size;
       atlas[y0 * stride + x] = 0xFF;
     }
   }
 #endif
 
-#ifdef Render_WRITE_ATLAS
+#ifdef WRITE_ATLAS
   stbi_write_png(
       "font_atlas.png",
-      Render_ASCII_X * size,
-      Render_ASCII_Y * size,
+      ASCII_X * size,
+      ASCII_Y * size,
       1,
       atlas,
-      Render_ASCII_X * size
+      ASCII_X * size
       );
 #endif
 
-  Byte* const channels = malloc(4 * Render_ASCII_X * size * Render_ASCII_Y * size);
-  const Index stride = Render_ASCII_X * size;
-  for (Index y = 0; y < Render_ASCII_Y * size; y++) {
-    for (Index x = 0; x < Render_ASCII_X * size; x++) {
+  Byte* const channels = malloc(4 * ASCII_X * size * ASCII_Y * size);
+  const Index stride = ASCII_X * size;
+  for (Index y = 0; y < ASCII_Y * size; y++) {
+    for (Index x = 0; x < ASCII_X * size; x++) {
       const Byte value = atlas[y * stride + x];
       channels[4 * (y * stride + x) + 0] = 0xFF;
       channels[4 * (y * stride + x) + 1] = 0xFF;
@@ -142,97 +144,122 @@ static Void Render_load_font(S32 size)
     }
   }
 
-  const V2S dimensions = { Render_ASCII_X * size, Render_ASCII_Y * size };
-  Render_font_atlas = Display_load_image(channels, dimensions);
+  const V2S dimensions = { ASCII_X * size, ASCII_Y * size };
+  texture_font = display_load_image(channels, dimensions);
 
   free(channels);
   free(atlas);
 
 }
 
-static Void Render_draw_grid_character(V2S point, Char c, U32 color)
+static Void draw_character(V2S point, Char c, U32 color)
 {
 
-  const V2S p     = Render_atlas_coordinate(c);
-  const V2S tile  = Render_tile_size(Render_dimensions);
+  const V2S p     = font_coordinate(c);
+  const V2S tile  = tile_size(canvas_dimensions);
 
   // @rdk: calculate glyph offset properly
-  const S32 glyph_offset = Render_dimensions.x / (Model_X * 4);
+  const S32 glyph_offset = canvas_dimensions.x / (MODEL_X * 4);
 
-  Display_Sprite s;
-  s.ta.x = (p.x + 0) / (F32) Render_ASCII_X;
-  s.ta.y = (p.y - 1) / (F32) Render_ASCII_Y;
-  s.tb.x = (p.x + 1) / (F32) Render_ASCII_X;
-  s.tb.y = (p.y + 0) / (F32) Render_ASCII_Y;
-  s.texture = Render_font_atlas;
+  Sprite s;
+  s.ta.x = (p.x + 0) / (F32) ASCII_X;
+  s.ta.y = (p.y - 1) / (F32) ASCII_Y;
+  s.tb.x = (p.x + 1) / (F32) ASCII_X;
+  s.tb.y = (p.y + 0) / (F32) ASCII_Y;
+  s.texture = texture_font;
   s.color = color;
   s.depth = 0.f;
   s.root.x = (F32) point.x * tile.x + glyph_offset;
   s.root.y = (F32) point.y * tile.y;
   s.size = v2f_of_v2s(tile);
-  Display_sprite(s);
+  display_sprite(s);
 
 }
 
-static Void Render_draw_grid_highlight(V2S point, U32 color, F32 depth)
+static Void draw_highlight(V2S point, U32 color, F32 depth)
 {
-  const V2S tile = Render_tile_size(Render_dimensions);
-  Display_Sprite s;
+  const V2S tile = tile_size(canvas_dimensions);
+  Sprite s;
   s.ta.x = 0.f;
   s.ta.y = 0.f;
   s.tb.x = 1.f;
   s.tb.y = 1.f;
-  s.texture = Render_white;
+  s.texture = texture_white;
   s.color = color;
   s.depth = depth;
   s.root.x = (F32) point.x * tile.x;
   s.root.y = (F32) point.y * tile.y;
   s.size = v2f_of_v2s(tile);
-  Display_sprite(s);
+  display_sprite(s);
 }
 
-Void Render_init(V2S dims)
+Void render_init(V2S dims)
 {
-  Render_dimensions = dims;
-  Display_init(dims, dims);
+  canvas_dimensions = dims;
+  display_init(dims, dims);
   const Byte white[] = { 0xFF, 0xFF, 0xFF, 0xFF };
-  Render_white = Display_load_image(white, v2s(1, 1));
-  Render_load_font(dims.x / Model_X);
+  texture_white = display_load_image(white, v2s(1, 1));
+  load_font(dims.x / MODEL_X);
+
+  for (Index i = 0; i < SIM_HISTORY; i++) {
+    const Message msg = message_alloc(i);
+    message_enqueue(&free_queue, msg);
+  }
 }
 
-Void Render_frame()
+Void render_frame()
 {
 
-  // @rdk: should be atomic read
-  const Model_T* const m = sim_model;
+  // empty the allocation queue
+  while (message_queue_length(&alloc_queue) > 0) {
 
-  Display_begin_frame();
+    Message msg = {0};
+    message_dequeue(&alloc_queue, &msg);
+    ASSERT(msg.tag == MESSAGE_ALLOCATE);
+    ASSERT(msg.alloc.index >= 0);
 
-  for (Index y = 0; y < Model_Y; y++) {
-    for (Index x = 0; x < Model_X; x++) {
-
-      const Model_Value value = m->map[y][x];
-      const V2S point = { (S32) x, (S32) y };
-      const Char vc = Render_char_table[value.tag];
-
-      if (value.tag == Model_VALUE_LITERAL) {
-        const S32 literal = m->map[y][x].literal;
-        const Char letter = 'A' + (Char) literal - 10;
-        const Char digit = '0' + (Char) literal;
-        const Char c = literal > 9 ? letter : digit;
-        Render_draw_grid_character(point, c, Render_COLOR_LITERAL);
-      } else if (vc != 0) {
-        Render_draw_grid_character(point, vc, Render_COLOR_OPERATOR);
-      } else {
-        Render_draw_grid_character(point, Render_EMPTY_CHARACTER, Render_COLOR_EMPTY);
-      }
+    // I find it ugly that we check the index every frame, when this condition
+    // should always be met after startup.
+    if (render_index != INDEX_NONE) {
+      const Message free_message = message_alloc(render_index);
+      _mm_lfence();
+      message_enqueue(&free_queue, free_message);
     }
+    render_index = msg.alloc.index;
+
   }
 
-  Render_draw_grid_highlight(sim_cursor, 0x40FFFFFF, 1.f);
+  // Again, I would prefer if we didn't have to check this each frame.
+  if (render_index != INDEX_NONE) {
 
-  Display_end_frame();
+    const Model* const m = &sim_history[render_index];
+    display_begin_frame();
 
+    for (Index y = 0; y < MODEL_Y; y++) {
+      for (Index x = 0; x < MODEL_X; x++) {
+
+        const Value value = m->map[y][x];
+        const V2S point = { (S32) x, (S32) y };
+        const Char vc = representation_table[value.tag];
+
+        if (value.tag == VALUE_LITERAL) {
+          const S32 literal = m->map[y][x].literal;
+          const Char letter = 'A' + (Char) literal - 10;
+          const Char digit = '0' + (Char) literal;
+          const Char c = literal > 9 ? letter : digit;
+          draw_character(point, c, COLOR_LITERAL);
+        } else if (vc != 0) {
+          draw_character(point, vc, COLOR_OPERATOR);
+        } else {
+          draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
+        }
+      }
+    }
+
+    draw_highlight(cursor, COLOR_CURSOR, 1.f);
+    display_end_frame();
+
+  }
 }
 
 #define STB_TRUETYPE_IMPLEMENTATION

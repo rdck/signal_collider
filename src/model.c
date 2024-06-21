@@ -1,222 +1,220 @@
 #include "model.h"
 
-#define Model_TMP_CLOCK 4
-#define Model_SCALE_CARDINAL 7
+#define SCALE_CARDINAL 7
 
-static V2S Model_unit_vector_table[Model_DIRECTION_CARDINAL] = {
-  [ Model_DIRECTION_NORTH       ] = {  0, -1 },
-  [ Model_DIRECTION_EAST        ] = {  1,  0 },
-  [ Model_DIRECTION_SOUTH       ] = {  0,  1 },
-  [ Model_DIRECTION_WEST        ] = { -1,  0 },
+static V2S unit_vector_table[DIRECTION_CARDINAL] = {
+  [ DIRECTION_NORTH       ] = {  0, -1 },
+  [ DIRECTION_EAST        ] = {  1,  0 },
+  [ DIRECTION_SOUTH       ] = {  0,  1 },
+  [ DIRECTION_WEST        ] = { -1,  0 },
 };
 
-static S32 Model_scale_table[Model_SCALE_CARDINAL] = {
+// semitone intervals of the major scale
+static S32 scale_table[SCALE_CARDINAL] = {
   0, 2, 4, 5, 7, 9, 11,
 };
 
-const Model_Value Model_value_none      = { 0 };
-const Model_Value Model_value_bang      = { .tag = Model_VALUE_BANG };
-const Model_Value Model_value_if        = { .tag = Model_VALUE_IF };
-const Model_Value Model_value_clock     = { .tag = Model_VALUE_CLOCK };
-const Model_Value Model_value_delay     = { .tag = Model_VALUE_DELAY };
-const Model_Value Model_value_add       = { .tag = Model_VALUE_ADD };
-const Model_Value Model_value_sub       = { .tag = Model_VALUE_SUB };
-const Model_Value Model_value_mul       = { .tag = Model_VALUE_MUL };
-const Model_Value Model_value_synth     = { .tag = Model_VALUE_SYNTH };
+const Value value_none      = { 0 };
+const Value value_bang      = { .tag = VALUE_BANG };
+const Value value_if        = { .tag = VALUE_IF };
+const Value value_clock     = { .tag = VALUE_CLOCK };
+const Value value_delay     = { .tag = VALUE_DELAY };
+const Value value_add       = { .tag = VALUE_ADD };
+const Value value_sub       = { .tag = VALUE_SUB };
+const Value value_mul       = { .tag = VALUE_MUL };
+const Value value_synth     = { .tag = VALUE_SYNTH };
 
-Model_Value Model_value_literal(S32 literal)
+Value value_literal(S32 literal)
 {
-  const Model_Value out = {
-    .tag = Model_VALUE_LITERAL,
+  const Value out = {
+    .tag = VALUE_LITERAL,
     .literal = literal,
   };
   return out;
 }
 
-Bool Model_valid_coordinate(V2S c)
+Bool valid_point(V2S c)
 {
-  const Bool x = c.x >= 0 && c.x < Model_X;
-  const Bool y = c.y >= 0 && c.y < Model_Y;
+  const Bool x = c.x >= 0 && c.x < MODEL_X;
+  const Bool y = c.y >= 0 && c.y < MODEL_Y;
   return x && y;
 }
 
-V2S Model_unit_vector(Model_Direction d)
+V2S unit_vector(Direction d)
 {
-  return Model_unit_vector_table[d];
+  return unit_vector_table[d];
 }
 
-V2S Model_translate_unit(V2S point, Model_Direction d)
+V2S add_unit_vector(V2S point, Direction d)
 {
-  const V2S uv = Model_unit_vector(d);
+  const V2S uv = unit_vector(d);
   return v2s_add(point, uv);
 }
 
-Void Model_init(Model_T* m)
+Void model_init(Model* m)
 {
-
   memset(m, 0, sizeof(*m));
   rnd_pcg_seed(&m->rnd, 0u);
-
 }
 
-Model_Value Model_get(const Model_T* m, V2S point)
+Value model_get(const Model* m, V2S point)
 {
-  const Model_Value none = {0};
-  if (Model_valid_coordinate(point)) {
+  const Value none = {0};
+  if (valid_point(point)) {
     return m->map[point.y][point.x];
   } else {
     return none;
   }
 }
 
-Void Model_set(Model_T* m, V2S point, Model_Value value)
+Void model_set(Model* m, V2S point, Value value)
 {
-  if (Model_valid_coordinate(point)) {
+  if (valid_point(point)) {
     m->map[point.y][point.x] = value;
   }
 }
 
-S32 Model_read_literal(Model_Value v, S32 none)
+S32 read_literal(Value v, S32 none)
 {
-  return v.tag == Model_VALUE_LITERAL ? v.literal : none;
+  return v.tag == VALUE_LITERAL ? v.literal : none;
 }
 
-Void Model_step(Model_T* m)
+Void model_step(Model* m)
 {
-
   // clear bangs
-  for (Index y = 0; y < Model_Y; y++) {
-    for (Index x = 0; x < Model_X; x++) {
-      const Model_Value value = m->map[y][x];
-      if (value.tag == Model_VALUE_BANG) {
-        m->map[y][x] = Model_value_none;
+  for (Index y = 0; y < MODEL_Y; y++) {
+    for (Index x = 0; x < MODEL_X; x++) {
+      const Value value = m->map[y][x];
+      if (value.tag == VALUE_BANG) {
+        m->map[y][x] = value_none;
       }
     }
   }
 
-  for (Index y = 0; y < Model_Y; y++) {
-    for (Index x = 0; x < Model_X; x++) {
+  for (Index y = 0; y < MODEL_Y; y++) {
+    for (Index x = 0; x < MODEL_X; x++) {
 
       const V2S origin = { (S32) x, (S32) y };
-      const Model_Value value = m->map[y][x];
+      const Value value = m->map[y][x];
 
-      V2S points[Model_DIRECTION_CARDINAL];
-      Model_Value values[Model_DIRECTION_CARDINAL];
-      for (Model_Direction d = 0; d < Model_DIRECTION_CARDINAL; d++) {
-        points[d] = Model_translate_unit(origin, d);
-        values[d] = Model_get(m, points[d]);
+      V2S points[DIRECTION_CARDINAL];
+      Value values[DIRECTION_CARDINAL];
+      for (Direction d = 0; d < DIRECTION_CARDINAL; d++) {
+        points[d] = add_unit_vector(origin, d);
+        values[d] = model_get(m, points[d]);
       }
 
-      const V2S pn = points[Model_DIRECTION_NORTH];
-      const V2S pe = points[Model_DIRECTION_EAST ];
-      const V2S pw = points[Model_DIRECTION_WEST ];
-      const V2S ps = points[Model_DIRECTION_SOUTH];
+      const V2S pn = points[DIRECTION_NORTH];
+      const V2S pe = points[DIRECTION_EAST ];
+      const V2S pw = points[DIRECTION_WEST ];
+      const V2S ps = points[DIRECTION_SOUTH];
 
-      const Model_Value vn = values[Model_DIRECTION_NORTH];
-      const Model_Value ve = values[Model_DIRECTION_EAST ];
-      const Model_Value vw = values[Model_DIRECTION_WEST ];
-      const Model_Value vs = values[Model_DIRECTION_SOUTH];
+      const Value vn = values[DIRECTION_NORTH];
+      const Value ve = values[DIRECTION_EAST ];
+      const Value vw = values[DIRECTION_WEST ];
+      const Value vs = values[DIRECTION_SOUTH];
+
+      UNUSED_PARAMETER(vn);
+      UNUSED_PARAMETER(vs);
+      UNUSED_PARAMETER(pe);
+      UNUSED_PARAMETER(pw);
+      UNUSED_PARAMETER(pn);
 
       switch (value.tag) {
 
-        case Model_VALUE_CLOCK:
+        case VALUE_CLOCK:
           {
-
-            const S32 rate = Model_read_literal(vw, 0) + 1;
-            S32 mod = Model_read_literal(ve, 8);
+            const S32 rate = read_literal(vw, 0) + 1;
+            S32 mod = read_literal(ve, 8);
             mod = mod == 0 ? 8 : mod;
             const S32 output = (m->frame / rate) % mod;
-            Model_set(m, ps, Model_value_literal(output));
-
+            model_set(m, ps, value_literal(output));
           } break;
 
-        case Model_VALUE_IF:
+        case VALUE_IF:
           {
-            if (ve.tag == Model_VALUE_LITERAL && vw.tag == Model_VALUE_LITERAL) {
+            if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
               if (ve.literal == vw.literal) {
-                Model_set(m, ps, Model_value_bang);
+                model_set(m, ps, value_bang);
               }
             }
           } break;
 
-        case Model_VALUE_DELAY:
+        case VALUE_DELAY:
           {
-            const S32 rate = Model_read_literal(vw, 0) + 1;
-            S32 mod = Model_read_literal(ve, 8);
+            const S32 rate = read_literal(vw, 0) + 1;
+            S32 mod = read_literal(ve, 8);
             mod = mod == 0 ? 8 : mod;
             const S32 output = (m->frame / rate) % mod;
             if (output == 0) {
-              Model_set(m, ps, Model_value_bang);
+              model_set(m, ps, value_bang);
             }
           } break;
 
-        case Model_VALUE_RANDOM:
+        case VALUE_RANDOM:
           {
             // @rdk: abstract modulo calculation
-            S32 mod = Model_read_literal(ve, 8);
+            S32 mod = read_literal(ve, 8);
             mod = mod == 0 ? 8 : mod;
             const S32 output = rnd_pcg_next(&m->rnd) % mod;
-            Model_set(m, ps, Model_value_literal(output));
+            model_set(m, ps, value_literal(output));
           } break;
 
-        case Model_VALUE_ADD:
+        case VALUE_ADD:
           {
-            const S32 l = Model_read_literal(vw, 0);
-            const S32 r = Model_read_literal(ve, 0);
-            const S32 e = (l + r) % Model_BASE;
-            Model_set(m, ps, Model_value_literal(e));
+            const S32 l = read_literal(vw, 0);
+            const S32 r = read_literal(ve, 0);
+            const S32 e = (l + r) % MODEL_RADIX;
+            model_set(m, ps, value_literal(e));
           } break;
 
-        case Model_VALUE_SUB:
+        case VALUE_SUB:
           {
-            const S32 l = Model_read_literal(vw, 0);
-            const S32 r = Model_read_literal(ve, 0);
+            const S32 l = read_literal(vw, 0);
+            const S32 r = read_literal(ve, 0);
             const S32 e = l - r;
-            const S32 rem = e < 0 ? e + Model_BASE : e;
-            Model_set(m, ps, Model_value_literal(rem));
+            const S32 rem = e < 0 ? e + MODEL_RADIX : e;
+            model_set(m, ps, value_literal(rem));
           } break;
 
-        case Model_VALUE_MUL:
+        case VALUE_MUL:
           {
-            const S32 l = Model_read_literal(vw, 0);
-            const S32 r = Model_read_literal(ve, 0);
-            const S32 e = (l * r) % Model_BASE;
-            Model_set(m, ps, Model_value_literal(e));
+            const S32 l = read_literal(vw, 0);
+            const S32 r = read_literal(ve, 0);
+            const S32 e = (l * r) % MODEL_RADIX;
+            model_set(m, ps, value_literal(e));
           } break;
 
-        case Model_VALUE_GENERATE:
+        case VALUE_GENERATE:
           {
-            const V2S wuv = Model_unit_vector(Model_DIRECTION_WEST);
+            const V2S wuv = unit_vector(DIRECTION_WEST);
             const V2S p_x = v2s_add(origin, v2s_scale(wuv, 2));
             const V2S p_y = v2s_add(origin, v2s_scale(wuv, 1));
-            const Model_Value xval = Model_get(m, p_x);
-            const Model_Value yval = Model_get(m, p_y);
-            const S32 xv = Model_read_literal(xval, 0);
-            const S32 yv = Model_read_literal(yval, 0);
+            const Value xval = model_get(m, p_x);
+            const Value yval = model_get(m, p_y);
+            const S32 xv = read_literal(xval, 0);
+            const S32 yv = read_literal(yval, 0);
             const V2S dest = v2s_add(origin, v2s(xv, yv));
             if (v2s_equal(dest, origin) == false) {
-              if (ve.tag != Model_VALUE_NONE) {
-                Model_set(m, dest, ve);
+              if (ve.tag != VALUE_NONE) {
+                model_set(m, dest, ve);
               }
             }
           } break;
 
-        case Model_VALUE_SCALE:
+        case VALUE_SCALE:
           {
-            const S32 index   = Model_read_literal(ve, 0);
-            const S32 octave  = index / Model_SCALE_CARDINAL;
-            const S32 note    = index % Model_SCALE_CARDINAL;
-            const S32 pitch   = (12 * octave + Model_scale_table[note]) % Model_BASE;
-            Model_set(m, ps, Model_value_literal(pitch));
+            const S32 index   = read_literal(ve, 0);
+            const S32 octave  = index / SCALE_CARDINAL;
+            const S32 note    = index % SCALE_CARDINAL;
+            const S32 pitch   = (12 * octave + scale_table[note]) % MODEL_RADIX;
+            model_set(m, ps, value_literal(pitch));
           } break;
-
       }
-
     }
   }
 
   m->frame += 1;
-
 }
 
 #define RND_IMPLEMENTATION

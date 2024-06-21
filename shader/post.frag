@@ -9,23 +9,23 @@ uniform sampler2D screen_texture;
 
 void main()
 { 
-    vec4 a = texture(screen_texture, uv);
+  vec4 a = texture(screen_texture, uv);
 
 #ifdef ABBERATION
 
-    vec2 edge = smoothstep(0., BLUR, uv) * (1. - smoothstep(1. - BLUR, 1., uv));
+  vec2 edge = smoothstep(0., BLUR, uv) * (1. - smoothstep(1. - BLUR, 1., uv));
 
-    FragColor.rgb = vec3(
-        texture(screen_texture, (uv - .5) * CA_AMT + .5).r,
-        texture(screen_texture, uv).g,
-        texture(screen_texture, (uv - .5) / CA_AMT +.5).b
-    ) * edge.x * edge.y;
+  FragColor.rgb = vec3(
+      texture(screen_texture, (uv - .5) * CA_AMT + .5).r,
+      texture(screen_texture, uv).g,
+      texture(screen_texture, (uv - .5) / CA_AMT +.5).b
+      ) * edge.x * edge.y;
 
-    FragColor.a = 1.f;
+  FragColor.a = 1.f;
 
 #else
 
-    FragColor = a;
+  FragColor = a;
 
 #endif
 

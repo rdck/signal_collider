@@ -1,10 +1,11 @@
 /*******************************************************************************
- * render.h - renderer
+ * view.h - model of user interface
  ******************************************************************************/
 
 #pragma once
 
-#include "model.h"
+#include "input.h"
 
-Void render_init(V2S dims);
-Void render_frame();
+extern V2S cursor;
+
+Void process_input(const InputFrame* input);

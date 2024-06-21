@@ -29,7 +29,6 @@ typedef char            Char;
 typedef bool            Bool;
 typedef void            Void;
 typedef size_t          Size;
-typedef S32             S32;
 
 typedef Void* VoidPointer;
 typedef ptrdiff_t Index;
@@ -45,6 +44,8 @@ typedef ptrdiff_t Index;
 #define KILO 1000
 #define MEGA 1000000
 #define GIGA 1000000000
+
+#define INDEX_NONE (-1)
 
 #define CAT_INTERNAL(a, ...) a ## __VA_ARGS__
 #define CAT(a, ...) CAT_INTERNAL(a, __VA_ARGS__)
@@ -69,10 +70,3 @@ typedef ptrdiff_t Index;
 
 // division rounding towards -inf when d < 0
 #define KNUTH_DIV(n, d) ((n) >= 0 ? (n) / (d) : ((n) - (d) + 1) / (d))
-
-#if 0
-#define SIZEOF(x) ((S32) sizeof(x))
-#define FLOOR(a, b) (((a) / (b)) * (b))
-#define ARRAY2_INDEX(ptr, stride, x, y) ((ptr)[(x) * (stride) + (y)])
-#define DIVIDE(a, b) ((a) >= 0 ? (a) / (b) : ((a) - (b) + 1) / (b))
-#endif

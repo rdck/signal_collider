@@ -13,6 +13,7 @@
 #include <audioclient.h>
 #include <avrt.h>
 #include <dbghelp.h>
+#include <intrin.h>
 
 #define GLAD_GL_IMPLEMENTATION
 #define GLAD_WGL_IMPLEMENTATION
@@ -21,8 +22,9 @@
 #include "linear_algebra.h"
 #include "input.h"
 #include "sim.h"
-#include "config.h"
+#include "view.h"
 #include "render.h"
+#include "config.h"
 #include "audio_guid.c"
 
 #define Shell_CLASS_NAME "SHELL_WINDOW_CLASS"
@@ -40,7 +42,7 @@
  ******************************************************************************/
 
 static const Char* Shell_error_caption = "ERROR";
-static Input_Frame Shell_input = {0};
+static InputFrame Shell_input = {0};
 static Index Shell_input_index = 0;
 static Index Shell_char_index = 0;
 static S64 Shell_performance_frequency = 0;
@@ -52,67 +54,67 @@ static HANDLE               Shell_event_handle;
 
 // @rdk: determine max keycode properly
 static S32 Shell_key_table[0xFF] = {
-  [ VK_LBUTTON    ] = Input_KEYCODE_MOUSE_LEFT,
-  [ VK_RBUTTON    ] = Input_KEYCODE_MOUSE_RIGHT,
-  [ VK_ESCAPE     ] = Input_KEYCODE_ESCAPE,
-  [ VK_RETURN     ] = Input_KEYCODE_ENTER,
-  [ VK_BACK       ] = Input_KEYCODE_BACKSPACE,
-  [ VK_TAB        ] = Input_KEYCODE_TAB,
-  [ VK_F1         ] = Input_KEYCODE_F1,
-  [ VK_F2         ] = Input_KEYCODE_F2,
-  [ VK_F3         ] = Input_KEYCODE_F3,
-  [ VK_F4         ] = Input_KEYCODE_F4,
-  [ VK_F5         ] = Input_KEYCODE_F5,
-  [ VK_F6         ] = Input_KEYCODE_F6,
-  [ VK_F7         ] = Input_KEYCODE_F7,
-  [ VK_F8         ] = Input_KEYCODE_F8,
-  [ VK_F9         ] = Input_KEYCODE_F9,
-  [ VK_F10        ] = Input_KEYCODE_F10,
-  [ VK_F11        ] = Input_KEYCODE_F11,
-  [ VK_F12        ] = Input_KEYCODE_F12,
-  [ VK_LEFT       ] = Input_KEYCODE_ARROW_LEFT,
-  [ VK_RIGHT      ] = Input_KEYCODE_ARROW_RIGHT,
-  [ VK_UP         ] = Input_KEYCODE_ARROW_UP,
-  [ VK_DOWN       ] = Input_KEYCODE_ARROW_DOWN,
-  [ ' '           ] = Input_KEYCODE_SPACE,
-  [ 'A'           ] = Input_KEYCODE_A,
-  [ 'B'           ] = Input_KEYCODE_B,
-  [ 'C'           ] = Input_KEYCODE_C,
-  [ 'D'           ] = Input_KEYCODE_D,
-  [ 'E'           ] = Input_KEYCODE_E,
-  [ 'F'           ] = Input_KEYCODE_F,
-  [ 'G'           ] = Input_KEYCODE_G,
-  [ 'H'           ] = Input_KEYCODE_H,
-  [ 'I'           ] = Input_KEYCODE_I,
-  [ 'J'           ] = Input_KEYCODE_J,
-  [ 'K'           ] = Input_KEYCODE_K,
-  [ 'L'           ] = Input_KEYCODE_L,
-  [ 'M'           ] = Input_KEYCODE_M,
-  [ 'N'           ] = Input_KEYCODE_N,
-  [ 'O'           ] = Input_KEYCODE_O,
-  [ 'P'           ] = Input_KEYCODE_P,
-  [ 'Q'           ] = Input_KEYCODE_Q,
-  [ 'R'           ] = Input_KEYCODE_R,
-  [ 'S'           ] = Input_KEYCODE_S,
-  [ 'T'           ] = Input_KEYCODE_T,
-  [ 'U'           ] = Input_KEYCODE_U,
-  [ 'V'           ] = Input_KEYCODE_V,
-  [ 'W'           ] = Input_KEYCODE_W,
-  [ 'X'           ] = Input_KEYCODE_X,
-  [ 'Y'           ] = Input_KEYCODE_Y,
-  [ 'Z'           ] = Input_KEYCODE_Z,
-  [ '0'           ] = Input_KEYCODE_0,
-  [ '1'           ] = Input_KEYCODE_1,
-  [ '2'           ] = Input_KEYCODE_2,
-  [ '3'           ] = Input_KEYCODE_3,
-  [ '4'           ] = Input_KEYCODE_4,
-  [ '5'           ] = Input_KEYCODE_5,
-  [ '6'           ] = Input_KEYCODE_6,
-  [ '7'           ] = Input_KEYCODE_7,
-  [ '8'           ] = Input_KEYCODE_8,
-  [ '9'           ] = Input_KEYCODE_9,
-  [ VK_OEM_PLUS   ] = Input_KEYCODE_PLUS,
-  [ VK_OEM_MINUS  ] = Input_KEYCODE_MINUS,
+  [ VK_LBUTTON    ] = KEYCODE_MOUSE_LEFT,
+  [ VK_RBUTTON    ] = KEYCODE_MOUSE_RIGHT,
+  [ VK_ESCAPE     ] = KEYCODE_ESCAPE,
+  [ VK_RETURN     ] = KEYCODE_ENTER,
+  [ VK_BACK       ] = KEYCODE_BACKSPACE,
+  [ VK_TAB        ] = KEYCODE_TAB,
+  [ VK_F1         ] = KEYCODE_F1,
+  [ VK_F2         ] = KEYCODE_F2,
+  [ VK_F3         ] = KEYCODE_F3,
+  [ VK_F4         ] = KEYCODE_F4,
+  [ VK_F5         ] = KEYCODE_F5,
+  [ VK_F6         ] = KEYCODE_F6,
+  [ VK_F7         ] = KEYCODE_F7,
+  [ VK_F8         ] = KEYCODE_F8,
+  [ VK_F9         ] = KEYCODE_F9,
+  [ VK_F10        ] = KEYCODE_F10,
+  [ VK_F11        ] = KEYCODE_F11,
+  [ VK_F12        ] = KEYCODE_F12,
+  [ VK_LEFT       ] = KEYCODE_ARROW_LEFT,
+  [ VK_RIGHT      ] = KEYCODE_ARROW_RIGHT,
+  [ VK_UP         ] = KEYCODE_ARROW_UP,
+  [ VK_DOWN       ] = KEYCODE_ARROW_DOWN,
+  [ ' '           ] = KEYCODE_SPACE,
+  [ 'A'           ] = KEYCODE_A,
+  [ 'B'           ] = KEYCODE_B,
+  [ 'C'           ] = KEYCODE_C,
+  [ 'D'           ] = KEYCODE_D,
+  [ 'E'           ] = KEYCODE_E,
+  [ 'F'           ] = KEYCODE_F,
+  [ 'G'           ] = KEYCODE_G,
+  [ 'H'           ] = KEYCODE_H,
+  [ 'I'           ] = KEYCODE_I,
+  [ 'J'           ] = KEYCODE_J,
+  [ 'K'           ] = KEYCODE_K,
+  [ 'L'           ] = KEYCODE_L,
+  [ 'M'           ] = KEYCODE_M,
+  [ 'N'           ] = KEYCODE_N,
+  [ 'O'           ] = KEYCODE_O,
+  [ 'P'           ] = KEYCODE_P,
+  [ 'Q'           ] = KEYCODE_Q,
+  [ 'R'           ] = KEYCODE_R,
+  [ 'S'           ] = KEYCODE_S,
+  [ 'T'           ] = KEYCODE_T,
+  [ 'U'           ] = KEYCODE_U,
+  [ 'V'           ] = KEYCODE_V,
+  [ 'W'           ] = KEYCODE_W,
+  [ 'X'           ] = KEYCODE_X,
+  [ 'Y'           ] = KEYCODE_Y,
+  [ 'Z'           ] = KEYCODE_Z,
+  [ '0'           ] = KEYCODE_0,
+  [ '1'           ] = KEYCODE_1,
+  [ '2'           ] = KEYCODE_2,
+  [ '3'           ] = KEYCODE_3,
+  [ '4'           ] = KEYCODE_4,
+  [ '5'           ] = KEYCODE_5,
+  [ '6'           ] = KEYCODE_6,
+  [ '7'           ] = KEYCODE_7,
+  [ '8'           ] = KEYCODE_8,
+  [ '9'           ] = KEYCODE_9,
+  [ VK_OEM_PLUS   ] = KEYCODE_PLUS,
+  [ VK_OEM_MINUS  ] = KEYCODE_MINUS,
 };
 
 static Void Shell_error_message(const Char* message)
@@ -279,13 +281,13 @@ static DWORD WINAPI Shell_audio_entry(Void* data)
     return Shell_EXIT_FAILURE;
   }
 
-  View_init();
+  sim_init();
   while (1)
   {
     F32* audio_buffer = NULL;
     const Index frames = Shell_audio_acquire_buffer(&audio_buffer);
     if (frames < 0) { break; }
-    View_step(audio_buffer, frames);
+    sim_step(audio_buffer, frames);
     Shell_audio_release_buffer(frames);
   }
 
@@ -293,17 +295,17 @@ static DWORD WINAPI Shell_audio_entry(Void* data)
 
 }
 
-static Void Shell_record_key(Input_KeyCode c, Input_KeyState s) {
-  Input_KeyEvent* const event = &Shell_input.events[Shell_input_index];
+static Void Shell_record_key(KeyCode c, KeyState s) {
+  KeyEvent* const event = &Shell_input.events[Shell_input_index];
   event->code = c;
   event->state = s;
-  Shell_input_index = (Shell_input_index + 1) % Input_MAX_EVENTS;
+  Shell_input_index = (Shell_input_index + 1) % MAX_INPUT_EVENTS;
 }
 
 static Void Shell_record_char(Char c)
 {
   Shell_input.chars[Shell_char_index] = c;
-  Shell_char_index = (Shell_char_index + 1) % Input_MAX_EVENTS;
+  Shell_char_index = (Shell_char_index + 1) % MAX_INPUT_EVENTS;
 }
 
 static LRESULT CALLBACK Shell_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam)
@@ -321,11 +323,11 @@ static LRESULT CALLBACK Shell_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
         const WORD vkcode = LOWORD(wparam);
         const WORD flags = HIWORD(lparam);
         const BOOL upflag = (flags & KF_UP) == KF_UP;
-        const Input_KeyState ks = upflag ? Input_KEYSTATE_UP : Input_KEYSTATE_DOWN;
-        const Input_KeyCode kc = Shell_key_table[vkcode];
-        if (kc != Input_KEYCODE_NONE) {
+        const KeyState ks = upflag ? KEYSTATE_UP : KEYSTATE_DOWN;
+        const KeyCode kc = Shell_key_table[vkcode];
+        if (kc != KEYCODE_NONE) {
           const Bool repeat = (flags & KF_REPEAT) == KF_REPEAT;
-          if ((ks == Input_KEYSTATE_DOWN && !repeat) || (ks == Input_KEYSTATE_UP)) {
+          if ((ks == KEYSTATE_DOWN && !repeat) || (ks == KEYSTATE_UP)) {
             Shell_record_key(kc, ks);
           }
         }
@@ -338,16 +340,16 @@ static LRESULT CALLBACK Shell_wnd_proc(HWND hwnd, UINT msg, WPARAM wparam, LPARA
       } break;
 
     case WM_LBUTTONDOWN:
-      Shell_record_key(Input_KEYCODE_MOUSE_LEFT, Input_KEYSTATE_DOWN);
+      Shell_record_key(KEYCODE_MOUSE_LEFT, KEYSTATE_DOWN);
       break;
     case WM_LBUTTONUP:
-      Shell_record_key(Input_KEYCODE_MOUSE_LEFT, Input_KEYSTATE_UP);
+      Shell_record_key(KEYCODE_MOUSE_LEFT, KEYSTATE_UP);
       break;
     case WM_RBUTTONDOWN:
-      Shell_record_key(Input_KEYCODE_MOUSE_RIGHT, Input_KEYSTATE_DOWN);
+      Shell_record_key(KEYCODE_MOUSE_RIGHT, KEYSTATE_DOWN);
       break;
     case WM_RBUTTONUP:
-      Shell_record_key(Input_KEYCODE_MOUSE_RIGHT, Input_KEYSTATE_UP);
+      Shell_record_key(KEYCODE_MOUSE_RIGHT, KEYSTATE_UP);
       break;
 
     default:
@@ -608,7 +610,7 @@ INT WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, PSTR cmdline, IN
   QueryPerformanceFrequency(&frequency);
   Shell_performance_frequency = frequency.QuadPart;
 
-  Render_init(render_dims);
+  render_init(render_dims);
 
   S64 now = Shell_query_clock();
 
@@ -619,14 +621,14 @@ INT WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, PSTR cmdline, IN
     then = now;
     now = Shell_query_clock();
 
-    Shell_input = (Input_Frame) {0};
+    Shell_input = (InputFrame) {0};
     Shell_input_index = 0;
 
-    POINT cursor = {0};
-    GetCursorPos(&cursor);
-    ScreenToClient(hwnd, &cursor);
-    Shell_input.mouse.x = cursor.x;
-    Shell_input.mouse.y = cursor.y;
+    POINT mouse = {0};
+    GetCursorPos(&mouse);
+    ScreenToClient(hwnd, &mouse);
+    Shell_input.mouse.x = mouse.x;
+    Shell_input.mouse.y = mouse.y;
 
     MSG msg = {0};
     while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
@@ -637,10 +639,8 @@ INT WINAPI WinMain(HINSTANCE instance, HINSTANCE prev_instance, PSTR cmdline, IN
       DispatchMessage(&msg);
     }
 
-    View_update(&Shell_input);
-    if (sim_model) {
-      Render_frame();
-    }
+    process_input(&Shell_input);
+    render_frame();
 
     glFinish();
     render = Shell_query_clock() - now;

@@ -4,87 +4,89 @@
 
 #pragma once
 
+#include "linear_algebra.h"
+
 // If there are more events than this in a frame, they are ignored.
-#define Input_MAX_EVENTS 32
+#define MAX_INPUT_EVENTS 32
 
 typedef enum {
-  Input_KEYCODE_NONE = 0,
-  Input_KEYCODE_MOUSE_LEFT,
-  Input_KEYCODE_MOUSE_RIGHT,
-  Input_KEYCODE_ESCAPE,
-  Input_KEYCODE_ENTER,
-  Input_KEYCODE_BACKSPACE,
-  Input_KEYCODE_TAB,
-  Input_KEYCODE_F1,
-  Input_KEYCODE_F2,
-  Input_KEYCODE_F3,
-  Input_KEYCODE_F4,
-  Input_KEYCODE_F5,
-  Input_KEYCODE_F6,
-  Input_KEYCODE_F7,
-  Input_KEYCODE_F8,
-  Input_KEYCODE_F9,
-  Input_KEYCODE_F10,
-  Input_KEYCODE_F11,
-  Input_KEYCODE_F12,
-  Input_KEYCODE_SPACE,
-  Input_KEYCODE_ARROW_LEFT,
-  Input_KEYCODE_ARROW_RIGHT,
-  Input_KEYCODE_ARROW_UP,
-  Input_KEYCODE_ARROW_DOWN,
-  Input_KEYCODE_0,
-  Input_KEYCODE_1,
-  Input_KEYCODE_2,
-  Input_KEYCODE_3,
-  Input_KEYCODE_4,
-  Input_KEYCODE_5,
-  Input_KEYCODE_6,
-  Input_KEYCODE_7,
-  Input_KEYCODE_8,
-  Input_KEYCODE_9,
-  Input_KEYCODE_A,
-  Input_KEYCODE_B,
-  Input_KEYCODE_C,
-  Input_KEYCODE_D,
-  Input_KEYCODE_E,
-  Input_KEYCODE_F,
-  Input_KEYCODE_G,
-  Input_KEYCODE_H,
-  Input_KEYCODE_I,
-  Input_KEYCODE_J,
-  Input_KEYCODE_K,
-  Input_KEYCODE_L,
-  Input_KEYCODE_M,
-  Input_KEYCODE_N,
-  Input_KEYCODE_O,
-  Input_KEYCODE_P,
-  Input_KEYCODE_Q,
-  Input_KEYCODE_R,
-  Input_KEYCODE_S,
-  Input_KEYCODE_T,
-  Input_KEYCODE_U,
-  Input_KEYCODE_V,
-  Input_KEYCODE_W,
-  Input_KEYCODE_X,
-  Input_KEYCODE_Y,
-  Input_KEYCODE_Z,
-  Input_KEYCODE_PLUS,
-  Input_KEYCODE_MINUS,
-  Input_KEYCODE_CARDINAL,
-} Input_KeyCode;
+  KEYCODE_NONE = 0,
+  KEYCODE_MOUSE_LEFT,
+  KEYCODE_MOUSE_RIGHT,
+  KEYCODE_ESCAPE,
+  KEYCODE_ENTER,
+  KEYCODE_BACKSPACE,
+  KEYCODE_TAB,
+  KEYCODE_F1,
+  KEYCODE_F2,
+  KEYCODE_F3,
+  KEYCODE_F4,
+  KEYCODE_F5,
+  KEYCODE_F6,
+  KEYCODE_F7,
+  KEYCODE_F8,
+  KEYCODE_F9,
+  KEYCODE_F10,
+  KEYCODE_F11,
+  KEYCODE_F12,
+  KEYCODE_SPACE,
+  KEYCODE_ARROW_LEFT,
+  KEYCODE_ARROW_RIGHT,
+  KEYCODE_ARROW_UP,
+  KEYCODE_ARROW_DOWN,
+  KEYCODE_0,
+  KEYCODE_1,
+  KEYCODE_2,
+  KEYCODE_3,
+  KEYCODE_4,
+  KEYCODE_5,
+  KEYCODE_6,
+  KEYCODE_7,
+  KEYCODE_8,
+  KEYCODE_9,
+  KEYCODE_A,
+  KEYCODE_B,
+  KEYCODE_C,
+  KEYCODE_D,
+  KEYCODE_E,
+  KEYCODE_F,
+  KEYCODE_G,
+  KEYCODE_H,
+  KEYCODE_I,
+  KEYCODE_J,
+  KEYCODE_K,
+  KEYCODE_L,
+  KEYCODE_M,
+  KEYCODE_N,
+  KEYCODE_O,
+  KEYCODE_P,
+  KEYCODE_Q,
+  KEYCODE_R,
+  KEYCODE_S,
+  KEYCODE_T,
+  KEYCODE_U,
+  KEYCODE_V,
+  KEYCODE_W,
+  KEYCODE_X,
+  KEYCODE_Y,
+  KEYCODE_Z,
+  KEYCODE_PLUS,
+  KEYCODE_MINUS,
+  KEYCODE_CARDINAL,
+} KeyCode;
 
 typedef enum {
-  Input_KEYSTATE_UP = 0,
-  Input_KEYSTATE_DOWN = 1,
-} Input_KeyState;
+  KEYSTATE_UP = 0,
+  KEYSTATE_DOWN = 1,
+} KeyState;
 
 typedef struct {
-  Input_KeyCode code;
-  Input_KeyState state;
-} Input_KeyEvent;
+  KeyCode code;
+  KeyState state;
+} KeyEvent;
 
 typedef struct {
-  Input_KeyEvent events[Input_MAX_EVENTS];
-  Char chars[Input_MAX_EVENTS];
+  KeyEvent events[MAX_INPUT_EVENTS];
+  Char chars[MAX_INPUT_EVENTS];
   V2S mouse;
-} Input_Frame;
+} InputFrame;

@@ -13,8 +13,8 @@ out float depth;
 
 void main()
 {
-    uv = uv_in;
-    color = color_in;
-    depth = depth_in;
-    gl_Position = projection * vec4(pos.x, pos.y, 0.0f, 1.0f);
+  uv = uv_in;
+  color = color_in;
+  depth = depth_in;
+  gl_Position = projection * vec4(pos.x, pos.y, 0.0f, 1.0f);
 }

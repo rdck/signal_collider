@@ -1,28 +1,52 @@
+/*******************************************************************************
+ * message.h - message passing between audio and render thread
+ ******************************************************************************/
+
 #pragma once
+
 #include "model.h"
 
-#define Message_QUEUE_CAPACITY 0x40
+// @rdk: support dynamic capacity for queues
+#define MESSAGE_QUEUE_CAPACITY 0x100
 
-// @rdk: change prefix
-typedef enum Message_MessageTag {
-  Model_MESSAGE_NONE,
-  Model_MESSAGE_SET,
-  Model_MESSAGE_CARDINAL,
-} Message_MessageTag;
+typedef enum MessageTag {
+  MESSAGE_NONE,
+  MESSAGE_WRITE,
+  MESSAGE_ALLOCATE,
+  MESSAGE_CARDINAL,
+} MessageTag;
 
-typedef struct Message_Message {
-  Message_MessageTag tag;
+typedef struct Write {
   V2S point;
-  Model_Value value;
-} Message_Message;
+  Value value;
+} Write;
 
-typedef struct Message_Queue {
+typedef struct Allocate {
+  Index index;
+} Allocate;
+
+typedef struct Message {
+  MessageTag tag;
+  union {
+    Write write;
+    Allocate alloc;
+  };
+} Message;
+
+typedef struct MessageQueue {
   Index producer;
   Index consumer;
   Index length;
-  Message_Message buffer[Message_QUEUE_CAPACITY];
-} Message_Queue;
+  Message buffer[MESSAGE_QUEUE_CAPACITY];
+} MessageQueue;
 
-Void Message_enqueue(Message_Queue* queue, Message_Message message);
-Void Message_dequeue(Message_Queue* queue, Message_Message* out);
-Index Message_queue_length(const Message_Queue* queue);
+// message builders
+Message message_write(V2S point, Value value);
+Message message_alloc(Index index);
+
+// queue mutation
+Void message_enqueue(MessageQueue* queue, Message message);
+Void message_dequeue(MessageQueue* queue, Message* out);
+
+// queue queries
+Index message_queue_length(const MessageQueue* queue);

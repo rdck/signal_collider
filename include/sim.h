@@ -1,22 +1,18 @@
+/*******************************************************************************
+ * sim.h - small step semantics
+ ******************************************************************************/
+
 #pragma once
+
 #include "message.h"
-#include "input.h"
 
-#if 0
-typedef struct View_T {
-  Model_T* model;
-  V2S cursor;
-} View_T;
+#define SIM_HISTORY 0x100
 
-extern View_T* const View_state;
-#endif
-
-extern V2S sim_cursor;
-extern Model_T* sim_model;
+extern Model sim_history[SIM_HISTORY];
+extern MessageQueue alloc_queue;
+extern MessageQueue free_queue;
+extern MessageQueue input_queue;
 
 // called from audio thread
-Void View_init();
-Void View_step(F32* audio_out, Index frames);
-
-// called from render thread
-Void View_update(const Input_Frame* input);
+Void sim_init();
+Void sim_step(F32* audio_out, Index frames);

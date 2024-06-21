@@ -26,6 +26,7 @@ build obj\shell.obj     : cc src\shell.c
 build obj\message.obj   : cc src\message.c
 build obj\model.obj     : cc src\model.c
 build obj\sim.obj       : cc src\sim.c
+build obj\view.obj      : cc src\view.c
 build obj\render.obj    : cc src\render.c | include\font.ttf.h
 build obj\display.obj   : cc src\display.c | $
   include\shader\primary.vert.h   $
@@ -38,5 +39,6 @@ build build\orcasynth.exe : link $
   obj\message.obj   $
   obj\model.obj     $
   obj\sim.obj       $
+  obj\view.obj      $
   obj\render.obj    $
   obj\display.obj

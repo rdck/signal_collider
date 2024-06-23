@@ -23,6 +23,9 @@
 #define COLOR_EMPTY      0x80FFFFFF
 #define COLOR_CURSOR     0x40FFFFFF
 
+// @rdk: unify
+#define SIM_PI                 3.141592653589793238f
+
 static Index render_index = INDEX_NONE;
 static V2S canvas_dimensions = {0};
 static TextureID texture_white = 0;
@@ -184,16 +187,15 @@ static Void draw_character(V2S point, Char c, U32 color)
   s.ta.y = (p.y + 0) / (F32) ASCII_Y;
   s.tb.x = (p.x + 1) / (F32) ASCII_X;
   s.tb.y = (p.y + 1) / (F32) ASCII_Y;
-  s.texture = texture_font;
+  // s.texture = texture_font;
   s.color = color;
-  s.depth = 0.f;
   s.root.x = (F32) (point.x * tile.x + delta.x / 2);
   s.root.y = (F32) (point.y * tile.y + delta.y / 2);
   s.size = v2f_of_v2s(glyph_size);
   display_sprite(s);
 }
 
-static Void draw_highlight(V2S point, U32 color, F32 depth)
+static Void draw_highlight(V2S point, U32 color)
 {
   const V2S tile = tile_size(canvas_dimensions);
   Sprite s;
@@ -201,9 +203,8 @@ static Void draw_highlight(V2S point, U32 color, F32 depth)
   s.ta.y = 0.f;
   s.tb.x = 1.f;
   s.tb.y = 1.f;
-  s.texture = texture_white;
+  // s.texture = texture_white;
   s.color = color;
-  s.depth = depth;
   s.root.x = (F32) point.x * tile.x;
   s.root.y = (F32) point.y * tile.y;
   s.size = v2f_of_v2s(tile);
@@ -251,6 +252,9 @@ Void render_frame()
     const Model* const m = &sim_history[render_index];
     display_begin_frame();
 
+    display_begin_draw();
+    display_bind_texture(texture_font);
+
     for (Index y = 0; y < MODEL_Y; y++) {
       for (Index x = 0; x < MODEL_X; x++) {
 
@@ -272,7 +276,13 @@ Void render_frame()
       }
     }
 
-    draw_highlight(cursor, COLOR_CURSOR, 1.f);
+    display_end_draw();
+
+    display_begin_draw();
+    display_bind_texture(texture_white);
+    draw_highlight(cursor, COLOR_CURSOR);
+    display_end_draw();
+
     display_end_frame();
 
   }

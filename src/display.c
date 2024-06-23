@@ -7,9 +7,11 @@
 #include "shader/post.frag.h"
 
 #define LOG_BUFFER_SIZE 512
-#define MAX_SPRITES 0x4000
+#define MAX_SPRITES 0x8000
+#define SPRITE_VERTICES 6 // two triangles
 #define FB_FILTER GL_LINEAR
 #define TEXTURE_FILTER GL_LINEAR
+#define VERTEX_STRIDE 5
 
 typedef struct {
 
@@ -31,15 +33,15 @@ typedef struct {
 
 } DisplayContext;
 
-static Sprite display_sprite_buffer[MAX_SPRITES] = {0};
-static S32 display_sprite_index = 0;
-
 typedef struct {
   F32 x; F32 y; // position
   F32 u; F32 v; // texture coordinates
   U32 color;
-  F32 depth;
 } Vertex;
+
+static Sprite display_sprite_buffer[MAX_SPRITES] = {0};
+static Vertex display_vertex_buffer[SPRITE_VERTICES * MAX_SPRITES] = {0};
+static S32 display_sprite_index = 0;
 
 static DisplayContext ctx = {0};
 
@@ -81,55 +83,34 @@ static Void GLAPIENTRY gl_message_callback(
   ASSERT(severity == GL_DEBUG_SEVERITY_NOTIFICATION);
 }
 
-// @rdk: don't set alignment when not necessary
-// @rdk: inline
-static TextureID load_png(
-    S32 x,
-    S32 y,
-    const Byte* data,
-    GLint internal_format,
-    GLint format,
-    GLint wrap,
-    GLint filter
-    )
-{
-  ASSERT(data);
-  GLuint id;
-  glGenTextures(1, &id);
-  glBindTexture(GL_TEXTURE_2D, id);  
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, wrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, wrap);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
-  glPixelStorei(GL_UNPACK_ALIGNMENT, 1); // necessary for monochrome textures
-  glTexImage2D(
-      GL_TEXTURE_2D,
-      0,                          // level
-      internal_format,            // internal format
-      x,                          // width
-      y,                          // height
-      0,                          // border (must be 0)
-      format,                     // format
-      GL_UNSIGNED_BYTE,           // type of pixel data
-      data
-      );
-  // @rdk: Do we need to generate the mipmap?
-  glGenerateMipmap(GL_TEXTURE_2D);
-  return id;
-}
-
 TextureID display_load_image(const Byte* image, V2S dimensions)
 {
-  ASSERT(image);
-  const TextureID id = load_png(
-      dimensions.x, dimensions.y,
-      image,
-      GL_RGBA,
-      GL_RGBA,
-      GL_CLAMP_TO_EDGE,
-      TEXTURE_FILTER
-      );
-  return id;
+  if (image) {
+    GLuint id;
+    glGenTextures(1, &id);
+    glBindTexture(GL_TEXTURE_2D, id);  
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, TEXTURE_FILTER);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, TEXTURE_FILTER);
+#ifdef DISPLAY_SUPPORT_MONOCHROME
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+#endif
+    glTexImage2D(
+        GL_TEXTURE_2D,
+        0,                  // level
+        GL_RGBA,            // internal format
+        dimensions.x,       // width
+        dimensions.y,       // height
+        0,                  // border (must be 0)
+        GL_RGBA,            // format
+        GL_UNSIGNED_BYTE,   // type of pixel data
+        image
+        );
+    return id;
+  } else {
+    return 0;
+  }
 }
 
 // returns 0 on failure
@@ -255,42 +236,38 @@ Void display_init(V2S window, V2S render)
   glBindVertexArray(ctx.VAO);
   glBindBuffer(GL_ARRAY_BUFFER, ctx.VBO);
 
+  // position attribute
   glVertexAttribPointer(
-      0,                          // index
-      2,                          // size
-      GL_FLOAT,                   // type
-      GL_FALSE,                   // normalized
-      6 * sizeof(F32),            // stride
-      (Void*)0                    // offset
+      0,                            // index
+      2,                            // size
+      GL_FLOAT,                     // type
+      GL_FALSE,                     // normalized
+      VERTEX_STRIDE * sizeof(F32),  // stride
+      (Void*)0                      // offset
       );
   glEnableVertexAttribArray(0);
+
+  // texture coordinate attribute
   glVertexAttribPointer(
-      1,                          // index
-      2,                          // size
-      GL_FLOAT,                   // type
-      GL_FALSE,                   // normalized
-      6 * sizeof(F32),            // stride
-      (Void*)(2 * sizeof(F32))    // offset
+      1,                            // index
+      2,                            // size
+      GL_FLOAT,                     // type
+      GL_FALSE,                     // normalized
+      VERTEX_STRIDE * sizeof(F32),  // stride
+      (Void*)(2 * sizeof(F32))      // offset
       );
   glEnableVertexAttribArray(1);
+
+  // color attribute
   glVertexAttribPointer(
-      2,                          // index
-      4,                          // size
-      GL_UNSIGNED_BYTE,           // type
-      GL_TRUE,                    // normalized
-      6 * sizeof(F32),            // stride
-      (Void*)(4 * sizeof(F32))    // offset
+      2,                            // index
+      4,                            // size
+      GL_UNSIGNED_BYTE,             // type
+      GL_TRUE,                      // normalized
+      VERTEX_STRIDE * sizeof(F32),  // stride
+      (Void*)(4 * sizeof(F32))      // offset
       );
   glEnableVertexAttribArray(2);
-  glVertexAttribPointer(
-      3,                          // index
-      1,                          // size
-      GL_FLOAT,                   // type
-      GL_FALSE,                   // normalized
-      6 * sizeof(F32),            // stride
-      (Void*)(5 * sizeof(F32))    // offset
-      );
-  glEnableVertexAttribArray(3);
 
   ctx.projection = glGetUniformLocation(ctx.program, "projection");
   M4F ortho = HMM_Orthographic_RH_NO(
@@ -340,94 +317,19 @@ Void display_init(V2S window, V2S render)
       );
 }
 
-static Void draw_rect(Sprite sprite)
-{
-  const Vertex top_left = {
-    .x = sprite.root.x,
-    .y = sprite.root.y,
-    .u = sprite.ta.u,
-    .v = sprite.ta.v,
-    .color = sprite.color,
-    .depth = sprite.depth,
-  };
-  const Vertex top_right = {
-    .x = sprite.root.x + sprite.size.x,
-    .y = sprite.root.y,
-    .u = sprite.tb.u,
-    .v = sprite.ta.v,
-    .color = sprite.color,
-    .depth = sprite.depth,
-  };
-  const Vertex bot_left = {
-    .x = sprite.root.x,
-    .y = sprite.root.y + sprite.size.y,
-    .u = sprite.ta.u,
-    .v = sprite.tb.v,
-    .color = sprite.color,
-    .depth = sprite.depth,
-  };
-  const Vertex bot_right = {
-    .x = sprite.root.x + sprite.size.x,
-    .y = sprite.root.y + sprite.size.y,
-    .u = sprite.tb.u,
-    .v = sprite.tb.v,
-    .color = sprite.color,
-    .depth = sprite.depth,
-  };
-
-  Vertex vertices[6];
-  vertices[0] = top_left;
-  vertices[1] = bot_left;
-  vertices[2] = bot_right;
-  vertices[3] = bot_right;
-  vertices[4] = top_right;
-  vertices[5] = top_left;
-
-  // @rdk: remove this when possible
-  const F32 blend = 1.f;
-  glUniform1f(ctx.blend, blend);
-
-  glBindTexture(GL_TEXTURE_2D, sprite.texture);
-
-  glBindBuffer(GL_ARRAY_BUFFER, ctx.VBO);
-  glBufferData(
-      GL_ARRAY_BUFFER,    // target
-      sizeof(vertices),   // size in bytes
-      vertices,           // data
-      GL_DYNAMIC_DRAW     // usage
-      );
-
-  glBindVertexArray(ctx.VAO);
-  glDrawArrays(GL_TRIANGLES, 0, 6);
-}
-
 Void display_begin_frame()
 {
   glBindFramebuffer(GL_FRAMEBUFFER, ctx.fbo);
   glClear(GL_COLOR_BUFFER_BIT);
-}
 
-static S32 compare_depth(const Sprite* a, const Sprite* b)
-{
-  return a->depth == b->depth ? 0 : (a->depth < b->depth ? 1 : -1); 
-}
-
-Void display_end_frame()
-{
   glUseProgram(ctx.program);
   glViewport(0, 0, ctx.render_resolution.x, ctx.render_resolution.y);
   glBindVertexArray(ctx.VAO);
   glEnable(GL_BLEND);
+}
 
-  const Size n = display_sprite_index;
-  qsort(display_sprite_buffer, n, sizeof(Sprite), compare_depth);
-  for (S32 i = 0; i < n; i++) {
-    draw_rect(display_sprite_buffer[i]);
-  }
-
-  memset(display_sprite_buffer, 0, sizeof(display_sprite_buffer));
-  display_sprite_index = 0;
-
+Void display_end_frame()
+{
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
   glClear(GL_COLOR_BUFFER_BIT);
 
@@ -455,4 +357,79 @@ U32 display_color_lerp(U32 a, U32 b, F32 t)
 
   U32* const outp = (U32*) &out;
   return *outp;
+}
+
+Void display_bind_texture(TextureID id)
+{
+  glBindTexture(GL_TEXTURE_2D, id);
+}
+
+Void display_begin_draw()
+{
+  display_sprite_index = 0;
+}
+
+Void display_end_draw()
+{
+  Vertex* const vertices = display_vertex_buffer;
+
+  for (S32 i = 0; i < display_sprite_index; i++) {
+
+    const S32 vi = SPRITE_VERTICES * i;
+    const Sprite* const sprite = &display_sprite_buffer[i];
+
+    // top left
+    vertices[vi + 0].x = sprite->root.x;
+    vertices[vi + 0].y = sprite->root.y;
+    vertices[vi + 0].u = sprite->ta.u;
+    vertices[vi + 0].v = sprite->ta.v;
+    vertices[vi + 0].color = sprite->color;
+
+    // bottom left
+    vertices[vi + 1].x = sprite->root.x;
+    vertices[vi + 1].y = sprite->root.y + sprite->size.y;
+    vertices[vi + 1].u = sprite->ta.u;
+    vertices[vi + 1].v = sprite->tb.v;
+    vertices[vi + 1].color = sprite->color;
+
+    // bottom right
+    vertices[vi + 2].x = sprite->root.x + sprite->size.x;
+    vertices[vi + 2].y = sprite->root.y + sprite->size.y;
+    vertices[vi + 2].u = sprite->tb.u;
+    vertices[vi + 2].v = sprite->tb.v;
+    vertices[vi + 2].color = sprite->color;
+
+    // bottom right
+    vertices[vi + 3].x = sprite->root.x + sprite->size.x;
+    vertices[vi + 3].y = sprite->root.y + sprite->size.y;
+    vertices[vi + 3].u = sprite->tb.u;
+    vertices[vi + 3].v = sprite->tb.v;
+    vertices[vi + 3].color = sprite->color;
+
+    // top right
+    vertices[vi + 4].x = sprite->root.x + sprite->size.x;
+    vertices[vi + 4].y = sprite->root.y;
+    vertices[vi + 4].u = sprite->tb.u;
+    vertices[vi + 4].v = sprite->ta.v;
+    vertices[vi + 4].color = sprite->color;
+
+    // top left
+    vertices[vi + 5].x = sprite->root.x;
+    vertices[vi + 5].y = sprite->root.y;
+    vertices[vi + 5].u = sprite->ta.u;
+    vertices[vi + 5].v = sprite->ta.v;
+    vertices[vi + 5].color = sprite->color;
+
+  }
+
+  glBindBuffer(GL_ARRAY_BUFFER, ctx.VBO);
+  glBufferData(
+      GL_ARRAY_BUFFER,    // target
+      SPRITE_VERTICES * display_sprite_index * sizeof(Vertex), // size in bytes
+      vertices,           // data
+      GL_DYNAMIC_DRAW     // usage
+      );
+
+  glBindVertexArray(ctx.VAO);
+  glDrawArrays(GL_TRIANGLES, 0, SPRITE_VERTICES * display_sprite_index);
 }

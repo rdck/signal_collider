@@ -2,7 +2,6 @@
 
 in vec2 uv;
 in vec4 color;
-in float depth;
 
 uniform sampler2D tex;
 uniform float blend;

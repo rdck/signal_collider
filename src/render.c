@@ -239,7 +239,6 @@ Void render_frame()
     // should always be met after startup.
     if (render_index != INDEX_NONE) {
       const Message free_message = message_alloc(render_index);
-      _mm_lfence();
       message_enqueue(&free_queue, free_message);
     }
     render_index = msg.alloc.index;

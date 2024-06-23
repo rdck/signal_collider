@@ -2,7 +2,7 @@
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I vendor\handmade_math -I vendor\stb -I vendor\gustavsson
 debug = -Oi -O2
-cflags = $warnings $includes $debug -MT -std:c17
+cflags = $warnings $includes $debug -MT -std:c17 -experimental:c11atomics
 win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib
 
 rule cc

@@ -1,4 +1,3 @@
-#include <intrin.h>
 #include <math.h>
 #include "sim.h"
 #include "config.h"
@@ -233,7 +232,6 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // update shared pointer
-    _mm_sfence();
     const Message msg = message_alloc(sim_head);
     message_enqueue(&alloc_queue, msg);
 

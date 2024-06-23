@@ -13,7 +13,6 @@
 #include <audioclient.h>
 #include <avrt.h>
 #include <dbghelp.h>
-#include <intrin.h>
 
 #define GLAD_GL_IMPLEMENTATION
 #define GLAD_WGL_IMPLEMENTATION

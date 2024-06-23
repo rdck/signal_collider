@@ -36,7 +36,7 @@ typedef struct Message {
 typedef struct MessageQueue {
   Index producer;
   Index consumer;
-  Index length;
+  _Atomic Index length;
   Message buffer[MESSAGE_QUEUE_CAPACITY];
 } MessageQueue;
 
@@ -44,9 +44,11 @@ typedef struct MessageQueue {
 Message message_write(V2S point, Value value);
 Message message_alloc(Index index);
 
-// queue mutation
+// no effect when queue is full
 Void message_enqueue(MessageQueue* queue, Message message);
+
+// no effect when queue is empty
 Void message_dequeue(MessageQueue* queue, Message* out);
 
-// queue queries
+// query length
 Index message_queue_length(const MessageQueue* queue);

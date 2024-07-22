@@ -70,7 +70,7 @@ static V2S font_coordinate(Char c)
 static Void load_font(S32 size)
 {
   stbtt_fontinfo font = {0};
-  const S32 init_result = stbtt_InitFont(&font, font_Hack_Regular_ttf, 0);
+  const S32 init_result = stbtt_InitFont(&font, font_hack, 0);
   ASSERT(init_result);
 
   const F32 scale = stbtt_ScaleForPixelHeight(&font, (F32) size);
@@ -187,12 +187,11 @@ static Void draw_character(V2S point, Char c, U32 color)
   s.ta.y = (p.y + 0) / (F32) ASCII_Y;
   s.tb.x = (p.x + 1) / (F32) ASCII_X;
   s.tb.y = (p.y + 1) / (F32) ASCII_Y;
-  // s.texture = texture_font;
   s.color = color;
   s.root.x = (F32) (point.x * tile.x + delta.x / 2);
   s.root.y = (F32) (point.y * tile.y + delta.y / 2);
   s.size = v2f_of_v2s(glyph_size);
-  display_sprite(s);
+  display_draw_sprite_struct(s);
 }
 
 static Void draw_highlight(V2S point, U32 color)
@@ -203,12 +202,11 @@ static Void draw_highlight(V2S point, U32 color)
   s.ta.y = 0.f;
   s.tb.x = 1.f;
   s.tb.y = 1.f;
-  // s.texture = texture_white;
   s.color = color;
   s.root.x = (F32) point.x * tile.x;
   s.root.y = (F32) point.y * tile.y;
   s.size = v2f_of_v2s(tile);
-  display_sprite(s);
+  display_draw_sprite_struct(s);
 }
 
 Void render_init(V2S dims)
@@ -252,8 +250,7 @@ Void render_frame()
     const Model* const m = &sim_history[render_index];
     display_begin_frame();
 
-    display_begin_draw();
-    display_bind_texture(texture_font);
+    display_begin_draw(texture_font);
 
     for (Index y = 0; y < MODEL_Y; y++) {
       for (Index x = 0; x < MODEL_X; x++) {
@@ -278,8 +275,7 @@ Void render_frame()
 
     display_end_draw();
 
-    display_begin_draw();
-    display_bind_texture(texture_white);
+    display_begin_draw(texture_white);
     draw_highlight(cursor, COLOR_CURSOR);
     display_end_draw();
 

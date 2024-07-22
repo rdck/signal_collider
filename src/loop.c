@@ -1,9 +1,13 @@
-#include "view.h"
+#include "loop.h"
+#include "render.h"
 #include "sim.h"
+#include "message.h"
+
+#define TITLE "Signal Collider"
+
+static const V2S collider_dimensions = { 1280, 720 };
 
 V2S cursor = {0};
-
-#if 0
 
 static Value value_table[0xFF] = {
   [ '=' ]       = { .tag = VALUE_IF         },
@@ -53,22 +57,57 @@ static Direction arrow_direction(KeyCode code)
   }
 }
 
-Void process_input(const InputFrame* input)
+ProgramStatus loop_config(ProgramConfig* config, const SystemInfo* system)
 {
-  // process arrow keys
-  for (Index i = 0; i < MAX_INPUT_EVENTS; i++) {
-    const KeyEvent* const event = &input->events[i];
-    if (event->state == KEYSTATE_DOWN) {
-      const Direction d = arrow_direction(event->code);
-      if (d != DIRECTION_NONE) {
-        update_cursor(d);
-      }
+  config->title = TITLE;
+  config->caption = TITLE;
+  config->resolution = collider_dimensions;
+  return PROGRAM_STATUS_LIVE;
+}
+
+ProgramStatus loop_init()
+{
+  sim_init(); // does this need to be called from audio thread?
+  render_init(collider_dimensions);
+  return PROGRAM_STATUS_LIVE;
+}
+
+ProgramStatus loop_video()
+{
+  render_frame();
+  return PROGRAM_STATUS_LIVE;
+}
+
+ProgramStatus loop_audio(F32* out, Index frames)
+{
+  sim_step(out, frames);
+  return PROGRAM_STATUS_LIVE;
+}
+
+Void loop_event(const Event* event)
+{
+  const KeyEvent* const key = &event->key;
+  const Char c = event->character.character;
+
+  if (event->tag == EVENT_KEY && key->state == KEYSTATE_DOWN) {
+    switch (key->code) {
+      case KEYCODE_ARROW_LEFT:
+        update_cursor(DIRECTION_WEST);
+        break;
+      case KEYCODE_ARROW_RIGHT:
+        update_cursor(DIRECTION_EAST);
+        break;
+      case KEYCODE_ARROW_UP:
+        update_cursor(DIRECTION_NORTH);
+        break;
+      case KEYCODE_ARROW_DOWN:
+        update_cursor(DIRECTION_SOUTH);
+        break;
+      default: { }
     }
   }
 
-  // process other keys
-  for (Index i = 0; i < MAX_INPUT_EVENTS; i++) {
-    const Char c = input->chars[i];
+  if (event->tag == EVENT_CHARACTER) {
     const Value input_value = value_table[c];
     if (input_value.tag != VALUE_NONE) {
       const Message msg = message_write(cursor, input_value);
@@ -87,4 +126,6 @@ Void process_input(const InputFrame* input)
   }
 }
 
-#endif
+Void loop_terminate()
+{
+}

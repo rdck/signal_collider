@@ -1,8 +1,16 @@
+# abbreviations
+platform = vendor\platform
+shader = $platform\shader
+hmm = $platform\vendor\handmade_math
+stb = $platform\vendor\stb
+gustavsson = $platform\vendor\gustavsson
+
 # compiler flags
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
-includes = -I include -I vendor\handmade_math -I vendor\stb -I vendor\gustavsson
+includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson
 debug = -Oi -O2
-cflags = $warnings $includes $debug -MT -std:c17 -experimental:c11atomics
+define = -D PLATFORM_AUDIO
+cflags = $warnings $includes $debug $define -MT -std:c17 -experimental:c11atomics
 win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib
 
 rule cc
@@ -14,31 +22,39 @@ rule link
     -link -subsystem:WINDOWS
 
 rule xxd
-  command = xxd -i $in $out
+  command = xxd -n $name -i $in $out
 
-build include\shader\primary.vert.h : xxd shader\primary.vert
-build include\shader\primary.frag.h : xxd shader\primary.frag
-build include\shader\post.vert.h    : xxd shader\post.vert
-build include\shader\post.frag.h    : xxd shader\post.frag
-build include\font.ttf.h            : xxd font\Hack-Regular.ttf
+build include\shader\sprite.vert.h    : xxd $shader\sprite.vert
+  name = shader_sprite_vertex
+build include\shader\sprite.frag.h    : xxd $shader\sprite.frag
+  name = shader_sprite_fragment
+build include\shader\resample.vert.h  : xxd $shader\resample.vert
+  name = shader_resample_vertex
+build include\shader\resample.frag.h  : xxd $shader\resample.frag
+  name = shader_resample_fragment
 
-build obj\shell.obj     : cc src\shell.c
+build include\font.ttf.h: xxd font\Hack-Regular.ttf
+  name = font_hack
+
+# platform objects
+build obj\display.obj   : cc $platform\src\display.c
+build obj\guid.obj      : cc $platform\src\windows\guid.c
+build obj\log.obj       : cc $platform\src\windows\log.c
+build obj\memory.obj    : cc $platform\src\windows\memory.c
+build obj\shell.obj     : cc $platform\src\windows\shell.c
+build obj\timer.obj     : cc $platform\src\windows\timer.c
+
+build obj\loop.obj      : cc src\loop.c
 build obj\message.obj   : cc src\message.c
 build obj\model.obj     : cc src\model.c
 build obj\sim.obj       : cc src\sim.c
 build obj\view.obj      : cc src\view.c
-build obj\render.obj    : cc src\render.c | include\font.ttf.h
-build obj\display.obj   : cc src\display.c | $
-  include\shader\primary.vert.h   $
-  include\shader\primary.frag.h   $
-  include\shader\post.vert.h      $
-  include\shader\post.frag.h
+build obj\render.obj    : cc src\render.c
 
-build build\orcasynth.exe : link $
-  obj\shell.obj     $
+build build\collider.exe : link $
+  obj\display.obj obj\guid.obj obj\log.obj obj\memory.obj obj\shell.obj obj\timer.obj $
+  obj\loop.obj      $
   obj\message.obj   $
   obj\model.obj     $
-  obj\sim.obj       $
-  obj\view.obj      $
   obj\render.obj    $
-  obj\display.obj
+  obj\sim.obj

@@ -4,7 +4,7 @@ INTRODUCTION
 
 This is an experimental implementation of a simple visual programming
 environment for the procedural generation and synthesis of musical sequences.
-It is a dialect of the ORCA programming language, originally written by
+It began as a dialect of the ORCA programming language, originally written by
 Devine Lu Linvega:
 
 https://100r.co/site/orca.html
@@ -25,8 +25,7 @@ This implementation was done from scratch, without reference to the original
 ORCA source code. I am writing it as a learning exercise, not to compete with
 the original ORCA implementation.
 
-The only supported platform is 64bit Windows. There are no plans to port it to
-other platforms.
+For the time being, the only target platform is 64bit Windows.
 
 --------------------------------------------------------------------------------
 OPERATORS

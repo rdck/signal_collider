@@ -6,12 +6,15 @@
 
 #include "prelude.h"
 
-#if 0
-#include "input.h"
-#endif
+#define CONSOLE_BUFFER 0x200
 
+typedef enum ViewState {
+  VIEW_STATE_GRID,
+  VIEW_STATE_CONSOLE,
+  VIEW_STATE_CARDINAL,
+} ViewState;
+
+extern ViewState view_state;
 extern V2S cursor;
-
-#if 0
-Void process_input(const InputFrame* input);
-#endif
+extern Char console[CONSOLE_BUFFER];
+extern Index console_head;

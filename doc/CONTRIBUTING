@@ -1,0 +1,11 @@
+--------------------------------------------------------------------------------
+ADDING AN OPERATOR
+--------------------------------------------------------------------------------
+
+The following steps are necessary to add an operator to the language:
++ add an entry to the ValueTag enum in the interpreter module
++ add a constant value declaration to the interpreter module
++ add a constant value definition to the interpreter module
++ add a character representation to `value_table` in the loop module
++ add a character representation to `representation_table` in the render module
++ modify the evaluator

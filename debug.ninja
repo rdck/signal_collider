@@ -5,21 +5,22 @@ hmm = $platform\vendor\handmade_math
 stb = $platform\vendor\stb
 gustavsson = $platform\vendor\gustavsson
 dr_libs = $platform\vendor\dr_libs
+sndkit = vendor\sndkit
 
 # compiler flags
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
-includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs
-debug = -Oi -O2
-define = -D PLATFORM_AUDIO
+includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs -I $sndkit
+debug = -Oi -Od
+define = -D PLATFORM_AUDIO -D DISPLAY_SPRITES=0x1000
 cflags = $warnings $includes $debug $define -MT -std:c17 -experimental:c11atomics
-win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib
+win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib winmm.lib
 
 rule cc
   deps = msvc
-  command = cl -nologo $cflags -c -showIncludes $includes -Fo: $out $in
+  command = cl -nologo -Z7 $cflags -c -showIncludes $includes -Fo: $out $in
 
 rule link
-  command = cl -nologo -Fe: $out $in $win32_libs $
+  command = cl -nologo -Z7 -Fe: $out $in $win32_libs $
     -link -subsystem:WINDOWS
 
 rule xxd
@@ -45,7 +46,13 @@ build obj\memory.obj    : cc $platform\src\windows\memory.c
 build obj\shell.obj     : cc $platform\src\windows\shell.c
 build obj\timer.obj     : cc $platform\src\windows\timer.c
 build obj\file.obj      : cc $platform\src\windows\file.c
+build obj\midi.obj      : cc $platform\src\windows\midi.c
 
+# sndkit objects
+build obj\bigverb.obj   : cc $sndkit\bigverb.c
+build obj\env.obj       : cc $sndkit\env.c
+
+# objects
 build obj\loop.obj      : cc src\loop.c
 build obj\message.obj   : cc src\message.c
 build obj\model.obj     : cc src\model.c
@@ -53,7 +60,9 @@ build obj\sim.obj       : cc src\sim.c
 build obj\render.obj    : cc src\render.c
 
 build build\collider.exe : link $
-  obj\display.obj obj\guid.obj obj\log.obj obj\memory.obj obj\shell.obj obj\timer.obj obj\file.obj $
+  obj\display.obj obj\guid.obj obj\log.obj obj\memory.obj obj\shell.obj obj\timer.obj obj\file.obj obj\midi.obj $
+  obj\bigverb.obj   $
+  obj\env.obj       $
   obj\loop.obj      $
   obj\message.obj   $
   obj\model.obj     $

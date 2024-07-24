@@ -10,6 +10,7 @@
 #include "stb_image_write.h"
 #endif
 
+#define FONT_SIZE 28 // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -18,15 +19,18 @@
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
 
-#define COLOR_LITERAL    0xFFFF8080
-#define COLOR_OPERATOR   0xFFFFFFFF
-#define COLOR_EMPTY      0x80FFFFFF
-#define COLOR_CURSOR     0x40FFFFFF
+#define COLOR_LITERAL     0xFFFF8080
+#define COLOR_POWERED     0xFFFFFFFF
+#define COLOR_PULSE       0xFF80FF80
+#define COLOR_UNPOWERED   0xFFA0A0A0
+#define COLOR_EMPTY       0x80FFFFFF
+#define COLOR_CURSOR      0x40FF8080
+#define COLOR_GRAPH       0x40FFFFFF
+#define COLOR_CONSOLE_BG  0xFF202020
 
 // @rdk: unify
 #define SIM_PI                 3.141592653589793238f
 
-static Index render_index = INDEX_NONE;
 static V2S canvas_dimensions = {0};
 static TextureID texture_white = 0;
 static TextureID texture_font = 0;
@@ -34,22 +38,40 @@ static V2S glyph_size = {0};
 
 static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_LITERAL       ] = 0,
-  [ VALUE_BANG          ] = '*',
-  [ VALUE_IF            ] = '=',
-  [ VALUE_CLOCK         ] = 'C',
-  [ VALUE_DELAY         ] = 'D',
-  [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_BANG          ] = '!',
   [ VALUE_ADD           ] = '+',
   [ VALUE_SUB           ] = '-',
   [ VALUE_MUL           ] = '*',
-  [ VALUE_GENERATE      ] = '!',
-  [ VALUE_SCALE         ] = '#',
-  [ VALUE_SYNTH         ] = '~',
+  [ VALUE_DIV           ] = '/',
+  [ VALUE_EQUAL         ] = '=',
+  [ VALUE_GREATER       ] = '>',
+  [ VALUE_LESSER        ] = '<',
+  [ VALUE_AND           ] = '&',
+  [ VALUE_OR            ] = '|',
+  [ VALUE_ALTER         ] = 'A',
+  [ VALUE_BOTTOM        ] = 'B',
+  [ VALUE_CLOCK         ] = 'C',
+  [ VALUE_DELAY         ] = 'D',
+  [ VALUE_HOP           ] = 'H',
+  [ VALUE_INTERFERE     ] = 'I',
+  [ VALUE_JUMP          ] = 'J',
+  [ VALUE_LOAD          ] = 'L',
+  [ VALUE_MULTIPLEX     ] = 'M',
+  [ VALUE_NOTE          ] = 'N',
+  [ VALUE_ODDMENT       ] = 'O',
+  [ VALUE_QUOTE         ] = 'Q',
+  [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_STORE         ] = 'S',
+  [ VALUE_TOP           ] = 'T',
+  [ VALUE_SAMPLER       ] = 'X',
+  [ VALUE_SYNTH         ] = 'Y',
+  [ VALUE_MIDI          ] = 'Z',
 };
 
-static V2S tile_size(V2S canvas)
+V2S render_tile_size()
 {
-  return v2s_div(canvas, v2s(MODEL_X, MODEL_Y));
+  const S32 tile = MAX(glyph_size.x, glyph_size.y);
+  return v2s(tile, tile);
 }
 
 static Bool valid_atlas_point(V2S c, V2S d)
@@ -176,11 +198,12 @@ static Void load_font(S32 size)
   free(atlas);
 }
 
-static Void draw_character(V2S point, Char c, U32 color)
+static Void draw_character(V2F camera, V2S point, Char c, U32 color)
 {
   const V2S p     = font_coordinate(c);
-  const V2S tile  = tile_size(canvas_dimensions);
+  const V2S tile  = render_tile_size();
   const V2S delta = v2s_sub(tile, glyph_size);
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
 
   Sprite s;
   s.ta.x = (p.x + 0) / (F32) ASCII_X;
@@ -188,100 +211,148 @@ static Void draw_character(V2S point, Char c, U32 color)
   s.tb.x = (p.x + 1) / (F32) ASCII_X;
   s.tb.y = (p.y + 1) / (F32) ASCII_Y;
   s.color = color;
-  s.root.x = (F32) (point.x * tile.x + delta.x / 2);
-  s.root.y = (F32) (point.y * tile.y + delta.y / 2);
+  s.root.x = (F32) (relative.x * tile.x + delta.x / 2);
+  s.root.y = (F32) (relative.y * tile.y + delta.y / 2);
+  s.size = v2f_of_v2s(glyph_size);
+  const Bool x = s.root.x + s.size.x >= 0.f && s.root.x < (F32) canvas_dimensions.x;
+  const Bool y = s.root.y + s.size.y >= 0.f && s.root.y < (F32) canvas_dimensions.y;
+  if (x && y) {
+    display_draw_sprite_struct(s);
+  }
+}
+
+static Void draw_console_character(V2S point, Char c, U32 color)
+{
+  const V2S p     = font_coordinate(c);
+  Sprite s;
+  s.ta.x = (p.x + 0) / (F32) ASCII_X;
+  s.ta.y = (p.y + 0) / (F32) ASCII_Y;
+  s.tb.x = (p.x + 1) / (F32) ASCII_X;
+  s.tb.y = (p.y + 1) / (F32) ASCII_Y;
+  s.color = color;
+  s.root.x = (F32) (point.x * glyph_size.x);
+  s.root.y = (F32) (point.y * glyph_size.y);
   s.size = v2f_of_v2s(glyph_size);
   display_draw_sprite_struct(s);
 }
 
-static Void draw_highlight(V2S point, U32 color)
+static Void draw_highlight(V2F camera, V2S point, U32 color)
 {
-  const V2S tile = tile_size(canvas_dimensions);
+  const V2S tile = render_tile_size();
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
   Sprite s;
   s.ta.x = 0.f;
   s.ta.y = 0.f;
   s.tb.x = 1.f;
   s.tb.y = 1.f;
   s.color = color;
-  s.root.x = (F32) point.x * tile.x;
-  s.root.y = (F32) point.y * tile.y;
+  s.root.x = (F32) relative.x * tile.x;
+  s.root.y = (F32) relative.y * tile.y;
   s.size = v2f_of_v2s(tile);
-  display_draw_sprite_struct(s);
+  const Bool x = s.root.x + s.size.x >= 0.f && s.root.x < (F32) canvas_dimensions.x;
+  const Bool y = s.root.y + s.size.y >= 0.f && s.root.y < (F32) canvas_dimensions.y;
+  if (x && y) {
+    display_draw_sprite_struct(s);
+  }
 }
 
-Void render_init(V2S dims)
+Void render_init(V2S dimensions)
 {
-  canvas_dimensions = dims;
-  display_init(dims, dims);
+  canvas_dimensions = dimensions;
+  display_init(dimensions, dimensions);
   const Byte white[] = { 0xFF, 0xFF, 0xFF, 0xFF };
   texture_white = display_load_image(white, v2s(1, 1));
-  load_font(dims.x / MODEL_X);
-
-  for (Index i = 0; i < SIM_HISTORY; i++) {
-    const Message msg = message_alloc(i);
-    message_enqueue(&free_queue, msg);
-  }
+  // load_font(dimensions.x / MODEL_X);
+  load_font(FONT_SIZE);
 }
 
-Void render_frame()
+Void render_frame(const Model* m, V2F camera)
 {
+  // compute map of active memory
+  ModelGraph graph;
+  model_graph(&graph, m);
 
-  // empty the allocation queue
-  while (message_queue_length(&alloc_queue) > 0) {
+  // mark the beginning of the frame
+  display_begin_frame();
 
-    Message msg = {0};
-    message_dequeue(&alloc_queue, &msg);
-    ASSERT(msg.tag == MESSAGE_ALLOCATE);
-    ASSERT(msg.alloc.index >= 0);
-
-    // I find it ugly that we check the index every frame, when this condition
-    // should always be met after startup.
-    if (render_index != INDEX_NONE) {
-      const Message free_message = message_alloc(render_index);
-      message_enqueue(&free_queue, free_message);
-    }
-    render_index = msg.alloc.index;
-
-  }
-
-  // Again, I would prefer if we didn't have to check this each frame.
-  if (render_index != INDEX_NONE) {
-
-    const Model* const m = &sim_history[render_index];
-    display_begin_frame();
-
-    display_begin_draw(texture_font);
-
-    for (Index y = 0; y < MODEL_Y; y++) {
-      for (Index x = 0; x < MODEL_X; x++) {
-
-        const Value value = m->map[y][x];
-        const V2S point = { (S32) x, (S32) y };
-        const Char vc = representation_table[value.tag];
-
-        if (value.tag == VALUE_LITERAL) {
-          const S32 literal = m->map[y][x].literal;
-          const Char letter = 'A' + (Char) literal - 10;
-          const Char digit = '0' + (Char) literal;
-          const Char c = literal > 9 ? letter : digit;
-          draw_character(point, c, COLOR_LITERAL);
-        } else if (vc != 0) {
-          draw_character(point, vc, COLOR_OPERATOR);
-        } else {
-          draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
-        }
+  // draw the graph highlight
+  display_begin_draw(texture_white);
+  for (S32 y = 0; y < MODEL_Y; y++) {
+    for (S32 x = 0; x < MODEL_X; x++) {
+      if (graph.map[y][x]) {
+        const V2S c = { x, y };
+        draw_highlight(camera, c, COLOR_GRAPH);
       }
     }
-
-    display_end_draw();
-
-    display_begin_draw(texture_white);
-    draw_highlight(cursor, COLOR_CURSOR);
-    display_end_draw();
-
-    display_end_frame();
-
   }
+  display_end_draw();
+
+  // draw the cursor highlight
+  display_begin_draw(texture_white);
+  draw_highlight(camera, cursor, COLOR_CURSOR);
+  display_end_draw();
+
+  // draw the text
+  display_begin_draw(texture_font);
+
+  for (Index y = 0; y < MODEL_Y; y++) {
+    for (Index x = 0; x < MODEL_X; x++) {
+
+      const Value value = m->map[y][x];
+      const V2S point = { (S32) x, (S32) y };
+      const Char tag_character = representation_table[value.tag];
+
+      if (value.tag == VALUE_LITERAL) {
+        const S32 literal = m->map[y][x].literal;
+        const Char letter = 'A' + (Char) literal - 10;
+        const Char digit = '0' + (Char) literal;
+        const Char literal_character = literal > 9 ? letter : digit;
+        draw_character(camera, point, literal_character, COLOR_LITERAL);
+      } else if (tag_character != 0) {
+        const U32 color = value.powered
+          ? COLOR_POWERED
+          : (value.pulse ? COLOR_PULSE : COLOR_UNPOWERED);
+        draw_character(camera, point, tag_character, color);
+      } else {
+        draw_character(camera, point, EMPTY_CHARACTER, COLOR_EMPTY);
+      }
+    }
+  }
+
+  display_end_draw();
+
+  // draw the console, if active
+  if (view_state == VIEW_STATE_CONSOLE) {
+
+    // draw the console background
+    display_begin_draw(texture_white);
+    Sprite s;
+    s.ta.x = 0.f;
+    s.ta.y = 0.f;
+    s.tb.x = 1.f;
+    s.tb.y = 1.f;
+    s.color = COLOR_CONSOLE_BG;
+    s.root.x = 0.f;
+    s.root.y = 0.f;
+    s.size.x = (F32) canvas_dimensions.x;
+    s.size.y = (F32) glyph_size.y;
+    display_draw_sprite_struct(s);
+    display_end_draw();
+
+    display_begin_draw(texture_font);
+    draw_console_character(v2s(0, 0), ':', COLOR_WHITE);
+    for (S32 i = 0; i < CONSOLE_BUFFER; i++) {
+      const Char c = console[i];
+      if (c > 0) {
+        const V2S point = { i + 1, 0 };
+        draw_console_character(point, c, COLOR_WHITE);
+      }
+    }
+    display_end_draw();
+  }
+
+  // mark the end of the frame
+  display_end_frame();
 }
 
 #define STB_TRUETYPE_IMPLEMENTATION

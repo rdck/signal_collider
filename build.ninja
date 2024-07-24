@@ -48,7 +48,6 @@ build obj\loop.obj      : cc src\loop.c
 build obj\message.obj   : cc src\message.c
 build obj\model.obj     : cc src\model.c
 build obj\sim.obj       : cc src\sim.c
-build obj\view.obj      : cc src\view.c
 build obj\render.obj    : cc src\render.c
 
 build build\collider.exe : link $

@@ -1,5 +1,12 @@
 /*******************************************************************************
- * model.h - big step semantics
+ * model.h - language interpreter
+ *
+ * This module constitutes a definition of the language syntax and semantics.
+ * The `model_step` function is a "small-step" evaluator. It will be called
+ * once per beat by the realtime driver.
+ *
+ * The syntax of a program is structured as a 2D array, rather than as a tree.
+ * Evaluation proceeds in English reading-order.
  ******************************************************************************/
 
 #pragma once
@@ -7,11 +14,15 @@
 #include "linear_algebra.h"
 #include "rnd.h"
 
+// default grid size
 #define MODEL_X 32
 #define MODEL_Y 18
-#define MODEL_RADIX 36
-#define DIRECTION_NONE (-1)
 
+// the base of the numeral system
+#define MODEL_RADIX 36
+
+// cardinal directions
+#define DIRECTION_NONE (-1)
 typedef enum Direction {
   DIRECTION_NORTH,
   DIRECTION_EAST,
@@ -20,6 +31,7 @@ typedef enum Direction {
   DIRECTION_CARDINAL,
 } Direction;
 
+// syntactic constructs
 typedef enum ValueTag {
   VALUE_NONE,
   VALUE_BANG,
@@ -37,19 +49,20 @@ typedef enum ValueTag {
   VALUE_CARDINAL,
 } ValueTag;
 
+// literal values
 typedef struct Value {
   ValueTag tag;
   S32 literal;
 } Value;
 
+// program state
 typedef struct Model {
-  Index frame;
-  V2S cursor;
-  rnd_pcg_t rnd;
-  Value map[MODEL_Y][MODEL_X];
+  Index frame;                    // beat counter
+  rnd_pcg_t rnd;                  // random number generator
+  Value map[MODEL_Y][MODEL_X];    // value grid
 } Model;
 
-// values
+// constant values
 extern const Value value_none;
 extern const Value value_bang;
 extern const Value value_if;
@@ -59,19 +72,27 @@ extern const Value value_add;
 extern const Value value_sub;
 extern const Value value_synth;
 
-// value builders
+// build a literal value
 Value value_literal(S32 literal);
 
-// coordinate system
+// validate a coordinate
 Bool valid_point(V2S c);
+
+// construct a unit vector for a cardinal direction
 V2S unit_vector(Direction d);
+
+// addition for points and directions, in the natural way
 V2S add_unit_vector(V2S point, Direction d);
 
 // fold over optional value
 S32 read_literal(Value value, S32 none);
 
+// set a value
 Void model_set(Model* m, V2S point, Value value);
+
+// read a value
 Value model_get(const Model* m, V2S point);
 
+// evaluator
 Void model_init(Model* m);
 Void model_step(Model* m);

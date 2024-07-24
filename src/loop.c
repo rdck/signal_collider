@@ -5,9 +5,12 @@
 
 #define TITLE "Signal Collider"
 
-static const V2S collider_dimensions = { 1280, 720 };
+#define RESX 320
+#define RESY 180
 
 V2S cursor = {0};
+
+static V2S window_resolution = {0};
 
 static Value value_table[0xFF] = {
   [ '=' ]       = { .tag = VALUE_IF         },
@@ -59,16 +62,26 @@ static Direction arrow_direction(KeyCode code)
 
 ProgramStatus loop_config(ProgramConfig* config, const SystemInfo* system)
 {
-  config->title = TITLE;
-  config->caption = TITLE;
-  config->resolution = collider_dimensions;
+  config->title     = TITLE;
+  config->caption   = TITLE;
+
+  // determine render scale
+  V2S scales;
+  scales.x = system->display.x / RESX - 1;
+  scales.y = system->display.y / RESY - 1;
+  const S32 scale = MIN(scales.x, scales.y); 
+
+  // set window resolution
+  window_resolution = v2s_scale(v2s(RESX, RESY), scale);
+  config->resolution = window_resolution;
+
   return PROGRAM_STATUS_LIVE;
 }
 
 ProgramStatus loop_init()
 {
-  sim_init(); // does this need to be called from audio thread?
-  render_init(collider_dimensions);
+  sim_init();
+  render_init(window_resolution);
   return PROGRAM_STATUS_LIVE;
 }
 

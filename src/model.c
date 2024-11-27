@@ -142,9 +142,11 @@ Void model_step(Model* m)
         case VALUE_CLOCK:
           {
             const S32 rate = read_literal(vw, 0) + 1;
-            const S32 mod = map_zero(ve, 8);
-            const S32 output = (m->frame / rate) % mod;
-            model_set(m, ps, value_literal(output));
+            if (m->frame % rate == 0) {
+              const S32 mod = map_zero(ve, 8);
+              const S32 output = (m->frame / rate) % mod;
+              model_set(m, ps, value_literal(output));
+            }
           } break;
 
         case VALUE_IF:

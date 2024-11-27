@@ -9,17 +9,17 @@ dr_libs = $platform\vendor\dr_libs
 # compiler flags
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs
-debug = -Oi -O2
+debug = -Oi -Od
 define = -D PLATFORM_AUDIO
 cflags = $warnings $includes $debug $define -MT -std:c17 -experimental:c11atomics
 win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib
 
 rule cc
   deps = msvc
-  command = cl -nologo $cflags -c -showIncludes $includes -Fo: $out $in
+  command = cl -nologo -Z7 $cflags -c -showIncludes $includes -Fo: $out $in
 
 rule link
-  command = cl -nologo -Fe: $out $in $win32_libs $
+  command = cl -nologo -Z7 -Fe: $out $in $win32_libs $
     -link -subsystem:WINDOWS
 
 rule xxd

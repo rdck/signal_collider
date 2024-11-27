@@ -23,6 +23,7 @@ static Value value_table[0xFF] = {
   [ '+' ]       = { .tag = VALUE_ADD        },
   [ '-' ]       = { .tag = VALUE_SUB        },
   [ '*' ]       = { .tag = VALUE_MUL        },
+  [ '$' ]       = { .tag = VALUE_SAMPLER    },
 };
 
 static S32 literal_of_char(Char c)

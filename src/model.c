@@ -20,6 +20,7 @@ const Value value_add       = { .tag = VALUE_ADD };
 const Value value_sub       = { .tag = VALUE_SUB };
 const Value value_mul       = { .tag = VALUE_MUL };
 const Value value_synth     = { .tag = VALUE_SYNTH };
+const Value value_sampler   = { .tag = VALUE_SAMPLER };
 
 // semitone intervals of the major scale
 #define SCALE_CARDINAL 7

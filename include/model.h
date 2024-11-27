@@ -46,6 +46,7 @@ typedef enum ValueTag {
   VALUE_GENERATE,
   VALUE_SCALE,
   VALUE_SYNTH,
+  VALUE_SAMPLER,
   VALUE_CARDINAL,
 } ValueTag;
 
@@ -71,6 +72,7 @@ extern const Value value_delay;
 extern const Value value_add;
 extern const Value value_sub;
 extern const Value value_synth;
+extern const Value value_sampler;
 
 // build a literal value
 Value value_literal(S32 literal);

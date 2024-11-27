@@ -45,6 +45,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_GENERATE      ] = '!',
   [ VALUE_SCALE         ] = '#',
   [ VALUE_SYNTH         ] = '~',
+  [ VALUE_SAMPLER       ] = '$',
 };
 
 static V2S tile_size(V2S canvas)

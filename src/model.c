@@ -168,9 +168,12 @@ Void model_step(Model* m)
 
         case VALUE_RANDOM:
           {
-            const S32 mod = map_zero(ve, 8);
-            const S32 output = rnd_pcg_next(&m->rnd) % mod;
-            model_set(m, ps, value_literal(output));
+            const S32 rate = read_literal(vw, 0) + 1;
+            if (m->frame % rate == 0) {
+              const S32 mod = map_zero(ve, 8);
+              const S32 output = rnd_pcg_next(&m->rnd) % mod;
+              model_set(m, ps, value_literal(output));
+            }
           } break;
 
         case VALUE_ADD:

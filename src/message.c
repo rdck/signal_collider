@@ -1,5 +1,6 @@
 #include <stdatomic.h>
 #include "message.h"
+#include "log.h"
 
 Message message_write(V2S point, Value value)
 {
@@ -26,7 +27,6 @@ Index message_queue_length(const MessageQueue* queue)
 Void message_enqueue(MessageQueue* queue, Message message)
 {
   if (message_queue_length(queue) < MESSAGE_QUEUE_CAPACITY) {
-
     // write the message into the buffer and update the producer head
     queue->buffer[queue->producer] = message;
     queue->producer = (queue->producer + 1) % MESSAGE_QUEUE_CAPACITY;
@@ -37,7 +37,8 @@ Void message_enqueue(MessageQueue* queue, Message message)
       Index length = message_queue_length(queue);
       swapped = atomic_compare_exchange_weak(&queue->length, &length, length + 1);
     }
-
+  } else {
+    platform_log_warn("message queue is full");
   }
 }
 

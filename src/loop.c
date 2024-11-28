@@ -81,8 +81,23 @@ ProgramStatus loop_config(ProgramConfig* config, const SystemInfo* system)
 
 ProgramStatus loop_init()
 {
+  // initialize audio thread and render thread
   sim_init();
   render_init(window_resolution);
+
+  // initialize model history
+  model_init(&sim_history[0]);
+
+  // tell the render thread about the first slot
+  const Message zero_message = message_alloc(0);
+  message_enqueue(&alloc_queue, zero_message);
+
+  // tell the audio thread about the rest of the array
+  for (Index i = 1; i < SIM_HISTORY; i++) {
+    const Message message = message_alloc(i);
+    message_enqueue(&free_queue, message);
+  }
+
   return PROGRAM_STATUS_LIVE;
 }
 

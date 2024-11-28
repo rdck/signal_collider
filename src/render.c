@@ -26,7 +26,7 @@
 // @rdk: unify
 #define SIM_PI                 3.141592653589793238f
 
-static Index render_index = INDEX_NONE;
+static Index render_index = 0;
 static V2S canvas_dimensions = {0};
 static TextureID texture_white = 0;
 static TextureID texture_font = 0;
@@ -217,11 +217,6 @@ Void render_init(V2S dims)
   const Byte white[] = { 0xFF, 0xFF, 0xFF, 0xFF };
   texture_white = display_load_image(white, v2s(1, 1));
   load_font(dims.x / MODEL_X);
-
-  for (Index i = 0; i < SIM_HISTORY; i++) {
-    const Message msg = message_alloc(i);
-    message_enqueue(&free_queue, msg);
-  }
 }
 
 Void render_frame()
@@ -235,54 +230,46 @@ Void render_frame()
     ASSERT(msg.tag == MESSAGE_ALLOCATE);
     ASSERT(msg.alloc.index >= 0);
 
-    // I find it ugly that we check the index every frame, when this condition
-    // should always be met after startup.
-    if (render_index != INDEX_NONE) {
-      const Message free_message = message_alloc(render_index);
-      message_enqueue(&free_queue, free_message);
-    }
+    const Message free_message = message_alloc(render_index);
+    message_enqueue(&free_queue, free_message);
     render_index = msg.alloc.index;
 
   }
 
-  // Again, I would prefer if we didn't have to check this each frame.
-  if (render_index != INDEX_NONE) {
+  const Model* const m = &sim_history[render_index];
+  display_begin_frame();
 
-    const Model* const m = &sim_history[render_index];
-    display_begin_frame();
+  display_begin_draw(texture_font);
 
-    display_begin_draw(texture_font);
+  for (Index y = 0; y < MODEL_Y; y++) {
+    for (Index x = 0; x < MODEL_X; x++) {
 
-    for (Index y = 0; y < MODEL_Y; y++) {
-      for (Index x = 0; x < MODEL_X; x++) {
+      const Value value = m->map[y][x];
+      const V2S point = { (S32) x, (S32) y };
+      const Char vc = representation_table[value.tag];
 
-        const Value value = m->map[y][x];
-        const V2S point = { (S32) x, (S32) y };
-        const Char vc = representation_table[value.tag];
-
-        if (value.tag == VALUE_LITERAL) {
-          const S32 literal = m->map[y][x].literal;
-          const Char letter = 'A' + (Char) literal - 10;
-          const Char digit = '0' + (Char) literal;
-          const Char c = literal > 9 ? letter : digit;
-          draw_character(point, c, COLOR_LITERAL);
-        } else if (vc != 0) {
-          draw_character(point, vc, COLOR_OPERATOR);
-        } else {
-          draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
-        }
+      if (value.tag == VALUE_LITERAL) {
+        const S32 literal = m->map[y][x].literal;
+        const Char letter = 'A' + (Char) literal - 10;
+        const Char digit = '0' + (Char) literal;
+        const Char c = literal > 9 ? letter : digit;
+        draw_character(point, c, COLOR_LITERAL);
+      } else if (vc != 0) {
+        draw_character(point, vc, COLOR_OPERATOR);
+      } else {
+        draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
       }
     }
-
-    display_end_draw();
-
-    display_begin_draw(texture_white);
-    draw_highlight(cursor, COLOR_CURSOR);
-    display_end_draw();
-
-    display_end_frame();
-
   }
+
+  display_end_draw();
+
+  display_begin_draw(texture_white);
+  draw_highlight(cursor, COLOR_CURSOR);
+  display_end_draw();
+
+  display_end_frame();
+
 }
 
 #define STB_TRUETYPE_IMPLEMENTATION

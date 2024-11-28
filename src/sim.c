@@ -407,10 +407,6 @@ Void sim_init()
     clear_sampler_voice(i);
   }
 
-  // initialize model
-  Model* const m = &sim_history[0];
-  model_init(m);
-
   // load samples from disk
   LoadContext context = {0};
   platform_enumerate_directory("sample", load_sample, &context);

@@ -6,8 +6,7 @@
 
 #include "model.h"
 
-// @rdk: support dynamic capacity for queues
-#define MESSAGE_QUEUE_CAPACITY 0x100
+#define MESSAGE_QUEUE_CAPACITY 0x400
 
 typedef enum MessageTag {
   MESSAGE_NONE,

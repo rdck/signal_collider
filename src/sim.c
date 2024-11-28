@@ -9,7 +9,7 @@
 #define SIM_PERIOD 4500
 #define SIM_VOICES 0x100
 #define VOICE_DURATION 12000
-#define SIM_SOUNDS 32
+#define SIM_SOUNDS 32 // @rdk: unify with PALETTE_SOUND_CARDINAL
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
 #define STEREO 2

@@ -225,20 +225,24 @@ Void render_frame()
   // empty the allocation queue
   while (message_queue_length(&alloc_queue) > 0) {
 
-    Message msg = {0};
-    message_dequeue(&alloc_queue, &msg);
-    ASSERT(msg.tag == MESSAGE_ALLOCATE);
-    ASSERT(msg.alloc.index >= 0);
+    Message message = {0};
+    message_dequeue(&alloc_queue, &message);
+    ASSERT(message.tag == MESSAGE_ALLOCATE);
+    ASSERT(message.alloc.index >= 0);
 
     const Message free_message = message_alloc(render_index);
     message_enqueue(&free_queue, free_message);
-    render_index = msg.alloc.index;
+    render_index = message.alloc.index;
 
   }
 
+  // the model we're drawing
   const Model* const m = &sim_history[render_index];
+
+  // mark the beginning of the frame
   display_begin_frame();
 
+  // draw the text
   display_begin_draw(texture_font);
 
   for (Index y = 0; y < MODEL_Y; y++) {
@@ -246,16 +250,16 @@ Void render_frame()
 
       const Value value = m->map[y][x];
       const V2S point = { (S32) x, (S32) y };
-      const Char vc = representation_table[value.tag];
+      const Char tag_character = representation_table[value.tag];
 
       if (value.tag == VALUE_LITERAL) {
         const S32 literal = m->map[y][x].literal;
         const Char letter = 'A' + (Char) literal - 10;
         const Char digit = '0' + (Char) literal;
-        const Char c = literal > 9 ? letter : digit;
-        draw_character(point, c, COLOR_LITERAL);
-      } else if (vc != 0) {
-        draw_character(point, vc, COLOR_OPERATOR);
+        const Char literal_character = literal > 9 ? letter : digit;
+        draw_character(point, literal_character, COLOR_LITERAL);
+      } else if (tag_character != 0) {
+        draw_character(point, tag_character, COLOR_OPERATOR);
       } else {
         draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
       }
@@ -264,10 +268,12 @@ Void render_frame()
 
   display_end_draw();
 
+  // draw the cursor highlight
   display_begin_draw(texture_white);
   draw_highlight(cursor, COLOR_CURSOR);
   display_end_draw();
 
+  // mark the end of the frame
   display_end_frame();
 
 }

@@ -139,18 +139,18 @@ Void loop_event(const Event* event)
   if (event->tag == EVENT_CHARACTER) {
     const Value input_value = value_table[c];
     if (input_value.tag != VALUE_NONE) {
-      const Message msg = message_write(cursor, input_value);
-      message_enqueue(&input_queue, msg);
+      const Message message = message_write(cursor, input_value);
+      message_enqueue(&input_queue, message);
     }
     if (c == 0x08) {
-      const Message msg = message_write(cursor, value_none);
-      message_enqueue(&input_queue, msg);
+      const Message message = message_write(cursor, value_none);
+      message_enqueue(&input_queue, message);
     }
     const S32 lvalue = literal_of_char(c);
     if (lvalue >= 0) {
       const S32 value = literal_of_char(c);
-      const Message msg = message_write(cursor, value_literal(value));
-      message_enqueue(&input_queue, msg);
+      const Message message = message_write(cursor, value_literal(value));
+      message_enqueue(&input_queue, message);
     }
   }
 }

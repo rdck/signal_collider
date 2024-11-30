@@ -323,15 +323,6 @@ static Void sim_partial_step(F32* audio_out, Index frames)
   sim_frame += frames;
 }
 
-static Void process_message(Message msg)
-{
-  Model* const m = &sim_history[sim_head];
-
-  if (msg.tag == MESSAGE_WRITE) {
-    model_set(m, msg.write.point, msg.write.value);
-  }
-}
-
 #define MAX_PATH 0x400
 static Void load_sample(const Char* path, Void* user_data)
 {
@@ -362,11 +353,17 @@ Void sim_step(F32* audio_out, Index frames)
   const Index next_tick = sim_tick + SIM_PERIOD;
   const Index delta = MIN(frames, next_tick - sim_frame);
 
-  Message free_message = {0};
-  message_dequeue(&free_queue, &free_message);
+  // clear the output buffer
+  memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
-  if (free_message.tag == MESSAGE_ALLOCATE) {
+  if (message_queue_length(&free_queue) > 0) {
 
+    // pull the next slot off the queue
+    Message free_message = {0};
+    message_dequeue(&free_queue, &free_message);
+
+    // validate the message
+    ASSERT(free_message.tag == MESSAGE_ALLOCATE);
     ASSERT(free_message.alloc.index >= 0);
 
     // copy model
@@ -374,12 +371,29 @@ Void sim_step(F32* audio_out, Index frames)
     memcpy(&sim_history[next_head], &sim_history[sim_head], sizeof(Model));
     sim_head = next_head;
 
+    // the current model
+    Model* const m = &sim_history[sim_head];
+
+    // process input messages
     while (message_queue_length(&input_queue) > 0) {
-      Message msg = {0};
-      message_dequeue(&input_queue, &msg);
-      process_message(msg);
+
+      // pull a message off the queue
+      Message message = {0};
+      message_dequeue(&input_queue, &message);
+
+      // process the message
+      switch (message.tag) {
+
+        case MESSAGE_WRITE:
+          {
+            model_set(m, message.write.point, message.write.value);
+          } break;
+
+      }
+
     }
 
+    // compute the audio for this period
     if (delta < frames) {
       const Index remaining = frames - delta;
       sim_partial_step(audio_out, delta);
@@ -391,11 +405,13 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // update shared pointer
-    const Message msg = message_alloc(sim_head);
-    message_enqueue(&alloc_queue, msg);
+    const Message message = message_alloc(sim_head);
+    message_enqueue(&alloc_queue, message);
 
   } else {
-    memset(audio_out, 0, STEREO * frames * sizeof(F32));
+
+    platform_log_error("no free history buffer");
+
   }
 }
 

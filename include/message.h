@@ -24,6 +24,8 @@ typedef struct Allocate {
   Index index;
 } Allocate;
 
+// We don't really need this to be a tagged union. The queue should be
+// specialized to each type, eventually.
 typedef struct Message {
   MessageTag tag;
   union {

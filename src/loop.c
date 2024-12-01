@@ -2,12 +2,17 @@
 #include "render.h"
 #include "sim.h"
 #include "message.h"
+#include "view.h"
 
 #define TITLE "Signal Collider"
 
 #define RESX 320
 #define RESY 180
 
+// view data
+ViewState view_state = VIEW_STATE_GRID;
+Char console[CONSOLE_BUFFER] = {0};
+Index console_head = 0;
 V2S cursor = {0};
 
 static V2S window_resolution = {0};
@@ -118,41 +123,81 @@ Void loop_event(const Event* event)
   const KeyEvent* const key = &event->key;
   const Char c = event->character.character;
 
-  if (event->tag == EVENT_KEY && key->state == KEYSTATE_DOWN) {
-    switch (key->code) {
-      case KEYCODE_ARROW_LEFT:
-        update_cursor(DIRECTION_WEST);
-        break;
-      case KEYCODE_ARROW_RIGHT:
-        update_cursor(DIRECTION_EAST);
-        break;
-      case KEYCODE_ARROW_UP:
-        update_cursor(DIRECTION_NORTH);
-        break;
-      case KEYCODE_ARROW_DOWN:
-        update_cursor(DIRECTION_SOUTH);
-        break;
-      default: { }
-    }
+  switch (view_state) {
+
+    case VIEW_STATE_GRID:
+      {
+
+        if (event->tag == EVENT_KEY && key->state == KEYSTATE_DOWN) {
+          switch (key->code) {
+            case KEYCODE_ARROW_LEFT:
+              update_cursor(DIRECTION_WEST);
+              break;
+            case KEYCODE_ARROW_RIGHT:
+              update_cursor(DIRECTION_EAST);
+              break;
+            case KEYCODE_ARROW_UP:
+              update_cursor(DIRECTION_NORTH);
+              break;
+            case KEYCODE_ARROW_DOWN:
+              update_cursor(DIRECTION_SOUTH);
+              break;
+            default: { }
+          }
+        }
+
+        if (event->tag == EVENT_CHARACTER) {
+
+          if (c == '~') {
+            view_state = VIEW_STATE_CONSOLE;
+          } else {
+            const Value input_value = value_table[c];
+            if (input_value.tag != VALUE_NONE) {
+              const Message message = message_write(cursor, input_value);
+              message_enqueue(&input_queue, message);
+            }
+            if (c == 0x08) {
+              const Message message = message_write(cursor, value_none);
+              message_enqueue(&input_queue, message);
+            }
+            const S32 lvalue = literal_of_char(c);
+            if (lvalue >= 0) {
+              const S32 value = literal_of_char(c);
+              const Message message = message_write(cursor, value_literal(value));
+              message_enqueue(&input_queue, message);
+            }
+          }
+
+        }
+
+      } break;
+
+    case VIEW_STATE_CONSOLE:
+      {
+
+        if (event->tag == EVENT_CHARACTER) {
+
+          if (c == '\r') {
+            memset(console, 0, sizeof(console));
+            console_head = 0;
+            view_state = VIEW_STATE_GRID;
+          } else if (c == '\b') {
+            if (console_head > 0) {
+              console_head -= 1;
+              console[console_head] = 0;
+            }
+          } else {
+            if (console_head < CONSOLE_BUFFER) {
+              console[console_head] = c;
+              console_head += 1;
+            }
+          }
+        }
+
+      } break;
+
   }
 
-  if (event->tag == EVENT_CHARACTER) {
-    const Value input_value = value_table[c];
-    if (input_value.tag != VALUE_NONE) {
-      const Message message = message_write(cursor, input_value);
-      message_enqueue(&input_queue, message);
-    }
-    if (c == 0x08) {
-      const Message message = message_write(cursor, value_none);
-      message_enqueue(&input_queue, message);
-    }
-    const S32 lvalue = literal_of_char(c);
-    if (lvalue >= 0) {
-      const S32 value = literal_of_char(c);
-      const Message message = message_write(cursor, value_literal(value));
-      message_enqueue(&input_queue, message);
-    }
-  }
 }
 
 Void loop_terminate()

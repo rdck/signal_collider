@@ -22,6 +22,7 @@
 #define COLOR_OPERATOR   0xFFFFFFFF
 #define COLOR_EMPTY      0x80FFFFFF
 #define COLOR_CURSOR     0x40FFFFFF
+#define COLOR_CONSOLE_BG 0xFF202020
 
 // @rdk: unify
 #define SIM_PI                 3.141592653589793238f
@@ -272,6 +273,35 @@ Void render_frame()
   display_begin_draw(texture_white);
   draw_highlight(cursor, COLOR_CURSOR);
   display_end_draw();
+
+  // draw the console, if active
+  if (view_state == VIEW_STATE_CONSOLE) {
+
+    // draw the console background
+    display_begin_draw(texture_white);
+    Sprite s;
+    s.ta.x = 0.f;
+    s.ta.y = 0.f;
+    s.tb.x = 1.f;
+    s.tb.y = 1.f;
+    s.color = COLOR_CONSOLE_BG;
+    s.root.x = 0.f;
+    s.root.y = 0.f;
+    s.size.x = (F32) canvas_dimensions.x;
+    s.size.y = (F32) glyph_size.y;
+    display_draw_sprite_struct(s);
+    display_end_draw();
+
+    display_begin_draw(texture_font);
+    for (S32 i = 0; i < CONSOLE_BUFFER; i++) {
+      const Char c = console[i];
+      if (c > 0) {
+        const V2S point = { i, 0 };
+        draw_character(point, c, COLOR_WHITE);
+      }
+    }
+    display_end_draw();
+  }
 
   // mark the end of the frame
   display_end_frame();

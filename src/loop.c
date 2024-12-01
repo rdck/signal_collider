@@ -148,7 +148,7 @@ Void loop_event(const Event* event)
 
         if (event->tag == EVENT_CHARACTER) {
 
-          if (c == '~') {
+          if (c == ':') {
             view_state = VIEW_STATE_CONSOLE;
           } else {
             const Value input_value = value_table[c];

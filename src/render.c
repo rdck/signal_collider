@@ -10,6 +10,7 @@
 #include "stb_image_write.h"
 #endif
 
+#define FONT_SIZE 48 // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -51,7 +52,8 @@ static Char representation_table[VALUE_CARDINAL] = {
 
 static V2S tile_size(V2S canvas)
 {
-  return v2s_div(canvas, v2s(MODEL_X, MODEL_Y));
+  const S32 tile = MAX(glyph_size.x, glyph_size.y);
+  return v2s(tile, tile);
 }
 
 static Bool valid_atlas_point(V2S c, V2S d)
@@ -196,6 +198,21 @@ static Void draw_character(V2S point, Char c, U32 color)
   display_draw_sprite_struct(s);
 }
 
+static Void draw_console_character(V2S point, Char c, U32 color)
+{
+  const V2S p     = font_coordinate(c);
+  Sprite s;
+  s.ta.x = (p.x + 0) / (F32) ASCII_X;
+  s.ta.y = (p.y + 0) / (F32) ASCII_Y;
+  s.tb.x = (p.x + 1) / (F32) ASCII_X;
+  s.tb.y = (p.y + 1) / (F32) ASCII_Y;
+  s.color = color;
+  s.root.x = (F32) (point.x * glyph_size.x);
+  s.root.y = (F32) (point.y * glyph_size.y);
+  s.size = v2f_of_v2s(glyph_size);
+  display_draw_sprite_struct(s);
+}
+
 static Void draw_highlight(V2S point, U32 color)
 {
   const V2S tile = tile_size(canvas_dimensions);
@@ -211,13 +228,14 @@ static Void draw_highlight(V2S point, U32 color)
   display_draw_sprite_struct(s);
 }
 
-Void render_init(V2S dims)
+Void render_init(V2S dimensions)
 {
-  canvas_dimensions = dims;
-  display_init(dims, dims);
+  canvas_dimensions = dimensions;
+  display_init(dimensions, dimensions);
   const Byte white[] = { 0xFF, 0xFF, 0xFF, 0xFF };
   texture_white = display_load_image(white, v2s(1, 1));
-  load_font(dims.x / MODEL_X);
+  // load_font(dimensions.x / MODEL_X);
+  load_font(FONT_SIZE);
 }
 
 Void render_frame()
@@ -293,11 +311,12 @@ Void render_frame()
     display_end_draw();
 
     display_begin_draw(texture_font);
+    draw_console_character(v2s(0, 0), ':', COLOR_WHITE);
     for (S32 i = 0; i < CONSOLE_BUFFER; i++) {
       const Char c = console[i];
       if (c > 0) {
-        const V2S point = { i, 0 };
-        draw_character(point, c, COLOR_WHITE);
+        const V2S point = { i + 1, 0 };
+        draw_console_character(point, c, COLOR_WHITE);
       }
     }
     display_end_draw();

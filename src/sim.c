@@ -4,12 +4,11 @@
 #include "config.h"
 #include "dr_wav.h"
 #include "log.h"
-#include "file.h"
+#include "palette.h"
 
 #define SIM_PERIOD 4500
 #define SIM_VOICES 0x100
 #define VOICE_DURATION 12000
-#define SIM_SOUNDS 32 // @rdk: unify with PALETTE_SOUND_CARDINAL
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
 #define STEREO 2
@@ -53,11 +52,6 @@ typedef struct SamplerVoice {
 
 } SamplerVoice;
 
-typedef struct Sound {
-  Index frames; // total frame count
-  F32* audio_data;
-} Sound;
-
 // context during sample load
 typedef struct LoadContext {
   S32 loaded;
@@ -65,6 +59,9 @@ typedef struct LoadContext {
 
 // extern data
 Model sim_history[SIM_HISTORY];
+
+// FIFO of palette messages from render thread to audio thread
+MessageQueue palette_queue = {0};
 
 // FIFO of input messages from render thread to audio thread
 MessageQueue input_queue = {0};
@@ -78,10 +75,14 @@ MessageQueue free_queue = {0};
 // history buffer
 Model sim_history[SIM_HISTORY] = {0};
 
+// default empty palette
+static const Palette empty_palette = {0};
+
 // static audio thread data
 static Index sim_tick = 0;
 static Index sim_head = 0;
 static Index sim_frame = 0;
+static Palette* sim_palette = &empty_palette;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -92,9 +93,6 @@ static Index sim_synth_voice_head = 0;
 static SamplerVoice sim_sampler_voices[SIM_VOICES] = {0};
 static Index sim_sampler_voice_indices[SIM_VOICES] = {0};
 static Index sim_sampler_voice_head = 0;
-
-// loaded samples
-static Sound sim_sounds[SIM_SOUNDS] = {0};
 
 _Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
 
@@ -236,14 +234,11 @@ static Void sim_step_model()
 
           if (sound_index != INDEX_NONE)
           {
-            const Sound* const sound = &sim_sounds[sound_index];
-            if (sound->frames > 0) {
-              SamplerVoice* const voice = &sim_sampler_voices[vi];
-              voice->sound = sound_index;
-              voice->duration = duration;
-              voice->frame = 0;
-              voice->volume = 1.f;
-            }
+            SamplerVoice* const voice = &sim_sampler_voices[vi];
+            voice->sound = sound_index;
+            voice->duration = duration;
+            voice->frame = 0;
+            voice->volume = 1.f;
           }
         }
       }
@@ -280,17 +275,23 @@ static Void sim_step_sampler_voice(Index vi, F32* out, Index frames)
 {
   ASSERT(vi != INDEX_NONE);
   SamplerVoice* const voice = &sim_sampler_voices[vi];
-  const Sound* const sound = &sim_sounds[voice->sound];
+  const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
   const Index duration = (voice->duration + 1) * VOICE_DURATION;
 
-  for (Index i = 0; i < frames; i++) {
-    const Index iframe = voice->frame + i;
-    const Index wrap = iframe % sound->frames;
-    // const F32 volume = voice->volume * (duration - iframe) / (F32) duration;
-    const F32 volume = 1.f;
-    out[STEREO * i + 0] += volume * sound->audio_data[STEREO * wrap + 0];
-    out[STEREO * i + 1] += volume * sound->audio_data[STEREO * wrap + 1];
+  // We check this here because the palette can change.
+  if (sound->frames > 0) {
+
+    ASSERT(sound->interleaved);
+    for (Index i = 0; i < frames; i++) {
+      const Index iframe = voice->frame + i;
+      const Index wrap = iframe % sound->frames;
+      const F32 volume = 1.f;
+      out[STEREO * i + 0] += volume * sound->interleaved[STEREO * wrap + 0];
+      out[STEREO * i + 1] += volume * sound->interleaved[STEREO * wrap + 1];
+    }
+
   }
+
   voice->frame += frames;
   if (voice->frame >= duration) {
     clear_sampler_voice(vi);
@@ -323,35 +324,26 @@ static Void sim_partial_step(F32* audio_out, Index frames)
   sim_frame += frames;
 }
 
-#define MAX_PATH 0x400
-static Void load_sample(const Char* path, Void* user_data)
-{
-  LoadContext* const context = user_data;
-
-  // extend the path
-  Char extended_path[MAX_PATH] = {0};
-  snprintf(extended_path, MAX_PATH, "sample/%s", path);
-
-  // load sample
-  if (context->loaded < SIM_SOUNDS) {
-    U32 channels;
-    U32 sample_rate;
-    drwav_uint64 frame_count;
-    F32* sample_data = drwav_open_file_and_read_pcm_frames_f32(extended_path, &channels, &sample_rate, &frame_count, NULL);
-    if (sample_data) {
-      sim_sounds[context->loaded].audio_data = sample_data;
-      sim_sounds[context->loaded].frames = frame_count;
-      context->loaded += 1;
-    } else {
-      platform_log_info("load_sample: failed to decode wav file");
-    }
-  }
-}
-
 Void sim_step(F32* audio_out, Index frames)
 {
   const Index next_tick = sim_tick + SIM_PERIOD;
   const Index delta = MIN(frames, next_tick - sim_frame);
+
+  // process the palette queue
+  while (message_queue_length(&palette_queue) > 0) {
+
+    // pull a message off the queue
+    Message message = {0};
+    message_dequeue(&palette_queue, &message);
+
+    // validate the message
+    ASSERT(message.tag == MESSAGE_POINTER);
+    ASSERT(message.pointer);
+
+    // update the palette
+    sim_palette = message.pointer;
+
+  }
 
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
@@ -422,10 +414,6 @@ Void sim_init()
     clear_synth_voice(i);
     clear_sampler_voice(i);
   }
-
-  // load samples from disk
-  LoadContext context = {0};
-  platform_enumerate_directory("sample", load_sample, &context);
 }
 
 #define DR_WAV_IMPLEMENTATION

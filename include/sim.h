@@ -12,6 +12,7 @@ extern Model sim_history[SIM_HISTORY];
 extern MessageQueue alloc_queue;
 extern MessageQueue free_queue;
 extern MessageQueue input_queue;
+extern MessageQueue palette_queue;
 
 // called from audio thread
 Void sim_init();

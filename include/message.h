@@ -12,6 +12,7 @@ typedef enum MessageTag {
   MESSAGE_NONE,
   MESSAGE_WRITE,
   MESSAGE_ALLOCATE,
+  MESSAGE_POINTER,
   MESSAGE_CARDINAL,
 } MessageTag;
 
@@ -25,12 +26,14 @@ typedef struct Allocate {
 } Allocate;
 
 // We don't really need this to be a tagged union. The queue should be
-// specialized to each type, eventually.
+// specialized to each type, eventually. This would also mean we don't need a
+// generic void pointer message.
 typedef struct Message {
   MessageTag tag;
   union {
     Write write;
     Allocate alloc;
+    Void* pointer;
   };
 } Message;
 

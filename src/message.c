@@ -27,6 +27,14 @@ Message message_pointer(Void* pointer)
   return out;
 }
 
+Message message_reverb(Bool status)
+{
+  Message out;
+  out.tag = MESSAGE_REVERB;
+  out.flag = status;
+  return out;
+}
+
 Index message_queue_length(const MessageQueue* queue)
 {
   return atomic_load(&queue->length);

@@ -73,6 +73,9 @@ MessageQueue alloc_queue = {0};
 // FIFO of load messages from render thread to audio thread
 MessageQueue load_queue = {0};
 
+// FIFO of reverb messages from render thread to audio thread
+MessageQueue reverb_queue = {0};
+
 // FIFO of allocation messages from audio thread to render thread
 MessageQueue free_queue = {0};
 
@@ -87,6 +90,7 @@ static Index sim_tick = 0;
 static Index sim_head = 0;
 static Index sim_frame = 0;
 static Palette* sim_palette = &empty_palette;
+static Bool sim_reverb = false;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -352,6 +356,21 @@ Void sim_step(F32* audio_out, Index frames)
 
   }
 
+  // process the reverb queue
+  while (message_queue_length(&reverb_queue) > 0) {
+
+    // pull a message off the queue
+    Message message = {0};
+    message_dequeue(&reverb_queue, &message);
+
+    // validate the message
+    ASSERT(message.tag == MESSAGE_REVERB);
+
+    // update the reverb flag
+    sim_reverb = message.flag;
+
+  }
+
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
@@ -421,17 +440,19 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // reverberate
-    for (Index i = 0; i < frames; i++)
-    {
-      F32 lhs, rhs;
-      sk_bigverb_tick(
-          bigverb,
-          audio_out[2 * i + 0],
-          audio_out[2 * i + 1],
-          &lhs,
-          &rhs);
-      audio_out[2 * i + 0] += lhs;
-      audio_out[2 * i + 1] += rhs;
+    if (sim_reverb) {
+      for (Index i = 0; i < frames; i++)
+      {
+        F32 lhs, rhs;
+        sk_bigverb_tick(
+            bigverb,
+            audio_out[2 * i + 0],
+            audio_out[2 * i + 1],
+            &lhs,
+            &rhs);
+        audio_out[2 * i + 0] += lhs;
+        audio_out[2 * i + 1] += rhs;
+      }
     }
 
     // update shared pointer

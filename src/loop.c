@@ -14,6 +14,9 @@
 #define SAVE_TOKEN "save"
 #define LOAD_TOKEN "load"
 #define QUIT_TOKEN "quit"
+#define REVERB_TOKEN "reverb"
+#define ON_TOKEN "on"
+#define OFF_TOKEN "off"
 
 #define RESX 320
 #define RESY 180
@@ -184,6 +187,16 @@ static Void run_console_command(const Char* command)
     } else {
       platform_log_warn("save file has incorrect file size");
     }
+
+  } else if (strncmp(command, REVERB_TOKEN, sizeof(REVERB_TOKEN) - 1) == 0) {
+
+    const Char* const status_string = command + sizeof(REVERB_TOKEN);
+    Bool status = false;
+    if (strncmp(status_string, ON_TOKEN, sizeof(ON_TOKEN) - 1) == 0) {
+      status = true;
+    }
+    Message message = message_reverb(status);
+    message_enqueue(&reverb_queue, message);
 
   } else if (strncmp(command, QUIT_TOKEN, sizeof(QUIT_TOKEN) - 1) == 0) {
 

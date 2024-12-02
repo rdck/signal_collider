@@ -13,6 +13,7 @@ typedef enum MessageTag {
   MESSAGE_WRITE,
   MESSAGE_ALLOCATE,
   MESSAGE_POINTER,
+  MESSAGE_REVERB,
   MESSAGE_CARDINAL,
 } MessageTag;
 
@@ -34,6 +35,7 @@ typedef struct Message {
     Write write;
     Allocate alloc;
     Void* pointer;
+    Bool flag;
   };
 } Message;
 
@@ -48,6 +50,7 @@ typedef struct MessageQueue {
 Message message_write(V2S point, Value value);
 Message message_alloc(Index index);
 Message message_pointer(Void* pointer);
+Message message_reverb(Bool status);
 
 // no effect when queue is full
 Void message_enqueue(MessageQueue* queue, Message message);

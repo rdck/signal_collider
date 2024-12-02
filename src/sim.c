@@ -5,6 +5,7 @@
 #include "dr_wav.h"
 #include "log.h"
 #include "palette.h"
+#include "bigverb.h"
 
 #define SIM_PERIOD 4500
 #define SIM_VOICES 0x100
@@ -96,6 +97,9 @@ static Index sim_synth_voice_head = 0;
 static SamplerVoice sim_sampler_voices[SIM_VOICES] = {0};
 static Index sim_sampler_voice_indices[SIM_VOICES] = {0};
 static Index sim_sampler_voice_head = 0;
+
+// sndkit data
+static sk_bigverb* bigverb = NULL;
 
 _Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
 
@@ -416,6 +420,20 @@ Void sim_step(F32* audio_out, Index frames)
       sim_partial_step(audio_out, frames);
     }
 
+    // reverberate
+    for (Index i = 0; i < frames; i++)
+    {
+      F32 lhs, rhs;
+      sk_bigverb_tick(
+          bigverb,
+          audio_out[2 * i + 0],
+          audio_out[2 * i + 1],
+          &lhs,
+          &rhs);
+      audio_out[2 * i + 0] += lhs;
+      audio_out[2 * i + 1] += rhs;
+    }
+
     // update shared pointer
     const Message message = message_alloc(sim_head);
     message_enqueue(&alloc_queue, message);
@@ -434,6 +452,12 @@ Void sim_init()
     clear_synth_voice(i);
     clear_sampler_voice(i);
   }
+
+  // initialize sndkit data
+  bigverb = sk_bigverb_new(Config_AUDIO_SAMPLE_RATE);
+  ASSERT(bigverb);
+  sk_bigverb_size(bigverb, 0.93f);
+  sk_bigverb_cutoff(bigverb, 10000.f);
 }
 
 #define DR_WAV_IMPLEMENTATION

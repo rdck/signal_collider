@@ -5,10 +5,11 @@ hmm = $platform\vendor\handmade_math
 stb = $platform\vendor\stb
 gustavsson = $platform\vendor\gustavsson
 dr_libs = $platform\vendor\dr_libs
+sndkit = vendor\sndkit
 
 # compiler flags
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
-includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs
+includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs -I $sndkit\include
 debug = -Oi -Od
 define = -D PLATFORM_AUDIO
 cflags = $warnings $includes $debug $define -MT -std:c17 -experimental:c11atomics
@@ -46,6 +47,10 @@ build obj\shell.obj     : cc $platform\src\windows\shell.c
 build obj\timer.obj     : cc $platform\src\windows\timer.c
 build obj\file.obj      : cc $platform\src\windows\file.c
 
+# sndkit objects
+build obj\bigverb.obj   : cc $sndkit\src\bigverb.c
+
+# objects
 build obj\loop.obj      : cc src\loop.c
 build obj\message.obj   : cc src\message.c
 build obj\model.obj     : cc src\model.c
@@ -54,6 +59,7 @@ build obj\render.obj    : cc src\render.c
 
 build build\collider.exe : link $
   obj\display.obj obj\guid.obj obj\log.obj obj\memory.obj obj\shell.obj obj\timer.obj obj\file.obj $
+  obj\bigverb.obj   $
   obj\loop.obj      $
   obj\message.obj   $
   obj\model.obj     $

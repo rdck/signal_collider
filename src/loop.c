@@ -6,10 +6,14 @@
 #include "view.h"
 #include "file.h"
 #include "palette.h"
+#include "log.h"
 #include "dr_wav.h"
 
 #define TITLE "Signal Collider"
 #define PALETTE_TOKEN "palette"
+#define SAVE_TOKEN "save"
+#define LOAD_TOKEN "load"
+#define QUIT_TOKEN "quit"
 
 #define RESX 320
 #define RESY 180
@@ -21,6 +25,8 @@ Index console_head = 0;
 V2S cursor = {0};
 
 static V2S window_resolution = {0};
+static Index render_index = 0;
+static Bool loop_exit = false;
 
 static Value value_table[0xFF] = {
   [ '=' ]       = { .tag = VALUE_IF         },
@@ -135,7 +141,56 @@ static Void run_console_command(const Char* command)
       message_enqueue(&palette_queue, message);
 
     }
+
+  } else if (strncmp(command, SAVE_TOKEN, sizeof(SAVE_TOKEN) - 1) == 0) {
+
+    // parse path
+    const Char* const path = command + sizeof(SAVE_TOKEN);
+
+    // format data for storage
+    const Model* const m = &sim_history[render_index];
+    ModelStorage storage = {0};
+    strncpy((Char*) &storage.signature, MODEL_SIGNATURE, MODEL_SIGNATURE_BYTES);
+    storage.version = MODEL_VERSION;
+    memcpy(&storage.map, &m->map, sizeof(m->map));
+
+    // write file
+    const Index bytes_written = platform_write_file(path, (Byte*) &storage, sizeof(storage));
+    if (bytes_written != sizeof(storage)) {
+      platform_log_warn("failed to complete storage write");
+    }
+
+  } else if (strncmp(command, LOAD_TOKEN, sizeof(LOAD_TOKEN) - 1) == 0) {
+
+    // parse path
+    const Char* const path = command + sizeof(LOAD_TOKEN);
+
+    // read file
+    Index file_size = 0;
+    ModelStorage* const storage = (ModelStorage*) platform_read_file(path, &file_size);
+
+    // queue a load if the signature matches
+    if (file_size == (U64) sizeof(ModelStorage)) {
+      const S32 signature = strncmp(
+          (Char*) storage->signature,
+          MODEL_SIGNATURE,
+          MODEL_SIGNATURE_BYTES);
+      if (signature == 0 && storage->version == MODEL_VERSION) {
+        Message message = message_pointer(storage);
+        message_enqueue(&load_queue, message);
+      } else {
+        platform_log_warn("save file has incorrect signature or version");
+      }
+    } else {
+      platform_log_warn("save file has incorrect file size");
+    }
+
+  } else if (strncmp(command, QUIT_TOKEN, sizeof(QUIT_TOKEN) - 1) == 0) {
+
+    loop_exit = true;
+
   }
+
 }
 
 ProgramStatus loop_config(ProgramConfig* config, const SystemInfo* system)
@@ -180,8 +235,22 @@ ProgramStatus loop_init()
 
 ProgramStatus loop_video()
 {
-  render_frame();
-  return PROGRAM_STATUS_LIVE;
+  // empty the allocation queue
+  while (message_queue_length(&alloc_queue) > 0) {
+
+    Message message = {0};
+    message_dequeue(&alloc_queue, &message);
+    ASSERT(message.tag == MESSAGE_ALLOCATE);
+    ASSERT(message.alloc.index >= 0);
+
+    const Message free_message = message_alloc(render_index);
+    message_enqueue(&free_queue, free_message);
+    render_index = message.alloc.index;
+  }
+
+  const Model* const m = &sim_history[render_index];
+  render_frame(m);
+  return loop_exit ? PROGRAM_STATUS_SUCCESS : PROGRAM_STATUS_LIVE;
 }
 
 ProgramStatus loop_audio(F32* out, Index frames)

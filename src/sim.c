@@ -69,6 +69,9 @@ MessageQueue input_queue = {0};
 // FIFO of allocation messages from render thread to audio thread
 MessageQueue alloc_queue = {0};
 
+// FIFO of load messages from render thread to audio thread
+MessageQueue load_queue = {0};
+
 // FIFO of allocation messages from audio thread to render thread
 MessageQueue free_queue = {0};
 
@@ -365,6 +368,23 @@ Void sim_step(F32* audio_out, Index frames)
 
     // the current model
     Model* const m = &sim_history[sim_head];
+
+    // process load messages
+    while (message_queue_length(&load_queue) > 0) {
+
+      // pull a message off the queue
+      Message message = {0};
+      message_dequeue(&load_queue, &message);
+
+      // validate the message
+      ASSERT(message.tag == MESSAGE_POINTER);
+      ASSERT(message.pointer);
+
+      // copy the model
+      const ModelStorage* const storage = message.pointer;
+      memcpy(&m->map, storage->map, sizeof(m->map));
+
+    }
 
     // process input messages
     while (message_queue_length(&input_queue) > 0) {

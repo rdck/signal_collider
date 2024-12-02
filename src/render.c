@@ -28,7 +28,6 @@
 // @rdk: unify
 #define SIM_PI                 3.141592653589793238f
 
-static Index render_index = 0;
 static V2S canvas_dimensions = {0};
 static TextureID texture_white = 0;
 static TextureID texture_font = 0;
@@ -238,26 +237,8 @@ Void render_init(V2S dimensions)
   load_font(FONT_SIZE);
 }
 
-Void render_frame()
+Void render_frame(const Model* m)
 {
-
-  // empty the allocation queue
-  while (message_queue_length(&alloc_queue) > 0) {
-
-    Message message = {0};
-    message_dequeue(&alloc_queue, &message);
-    ASSERT(message.tag == MESSAGE_ALLOCATE);
-    ASSERT(message.alloc.index >= 0);
-
-    const Message free_message = message_alloc(render_index);
-    message_enqueue(&free_queue, free_message);
-    render_index = message.alloc.index;
-
-  }
-
-  // the model we're drawing
-  const Model* const m = &sim_history[render_index];
-
   // mark the beginning of the frame
   display_begin_frame();
 
@@ -324,7 +305,6 @@ Void render_frame()
 
   // mark the end of the frame
   display_end_frame();
-
 }
 
 #define STB_TRUETYPE_IMPLEMENTATION

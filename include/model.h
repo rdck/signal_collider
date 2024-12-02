@@ -21,6 +21,11 @@
 // the base of the numeral system
 #define MODEL_RADIX 36
 
+// byte length of the file signature
+#define MODEL_SIGNATURE "brstmata"
+#define MODEL_SIGNATURE_BYTES 8
+#define MODEL_VERSION 1
+
 // cardinal directions
 #define DIRECTION_NONE (-1)
 typedef enum Direction {
@@ -58,10 +63,17 @@ typedef struct Value {
 
 // program state
 typedef struct Model {
-  Index frame;                    // beat counter
-  rnd_pcg_t rnd;                  // random number generator
-  Value map[MODEL_Y][MODEL_X];    // value grid
+  Index frame;                            // beat counter
+  rnd_pcg_t rnd;                          // random number generator
+  Value map[MODEL_Y][MODEL_X];            // value grid
 } Model;
+
+// state stored on disk
+typedef struct ModelStorage {
+  Byte signature[MODEL_SIGNATURE_BYTES];  // file signature
+  S32 version;                            // file format version
+  Value map[MODEL_Y][MODEL_X];            // value grid
+} ModelStorage;
 
 // constant values
 extern const Value value_none;

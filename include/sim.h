@@ -13,6 +13,7 @@ extern MessageQueue alloc_queue;
 extern MessageQueue free_queue;
 extern MessageQueue input_queue;
 extern MessageQueue palette_queue;
+extern MessageQueue load_queue;
 
 // called from audio thread
 Void sim_init();

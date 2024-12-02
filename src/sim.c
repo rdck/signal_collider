@@ -14,6 +14,7 @@
 #define REFERENCE_ROOT 33
 #define STEREO 2
 #define OCTAVE 12
+#define REVERB_WET 0.12f
 
 #define SIM_PI                 3.141592653589793238f
 #define SIM_TWELFTH_ROOT_TWO   1.059463094359295264f
@@ -249,7 +250,7 @@ static Void sim_step_model()
             voice->sound = sound_index;
             voice->duration = duration;
             voice->frame = 0;
-            voice->volume = 1.f;
+            voice->volume = 0.2f;
           }
         }
       }
@@ -296,9 +297,8 @@ static Void sim_step_sampler_voice(Index vi, F32* out, Index frames)
     for (Index i = 0; i < frames; i++) {
       const Index iframe = voice->frame + i;
       const Index wrap = iframe % sound->frames;
-      const F32 volume = 1.f;
-      out[STEREO * i + 0] += volume * sound->interleaved[STEREO * wrap + 0];
-      out[STEREO * i + 1] += volume * sound->interleaved[STEREO * wrap + 1];
+      out[STEREO * i + 0] += voice->volume * sound->interleaved[STEREO * wrap + 0];
+      out[STEREO * i + 1] += voice->volume * sound->interleaved[STEREO * wrap + 1];
     }
 
   }
@@ -450,8 +450,8 @@ Void sim_step(F32* audio_out, Index frames)
             audio_out[2 * i + 1],
             &lhs,
             &rhs);
-        audio_out[2 * i + 0] += lhs;
-        audio_out[2 * i + 1] += rhs;
+        audio_out[2 * i + 0] += REVERB_WET * lhs;
+        audio_out[2 * i + 1] += REVERB_WET * rhs;
       }
     }
 

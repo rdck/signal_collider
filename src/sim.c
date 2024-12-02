@@ -76,7 +76,7 @@ MessageQueue free_queue = {0};
 Model sim_history[SIM_HISTORY] = {0};
 
 // default empty palette
-static const Palette empty_palette = {0};
+static Palette empty_palette = {0};
 
 // static audio thread data
 static Index sim_tick = 0;

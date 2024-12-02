@@ -19,6 +19,14 @@ Message message_alloc(Index index)
   return out;
 }
 
+Message message_pointer(Void* pointer)
+{
+  Message out;
+  out.tag = MESSAGE_POINTER;
+  out.pointer = pointer;
+  return out;
+}
+
 Index message_queue_length(const MessageQueue* queue)
 {
   return atomic_load(&queue->length);

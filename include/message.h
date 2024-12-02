@@ -47,6 +47,7 @@ typedef struct MessageQueue {
 // message builders
 Message message_write(V2S point, Value value);
 Message message_alloc(Index index);
+Message message_pointer(Void* pointer);
 
 // no effect when queue is full
 Void message_enqueue(MessageQueue* queue, Message message);

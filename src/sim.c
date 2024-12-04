@@ -1,10 +1,12 @@
 #include <math.h>
-#include <stdio.h> // for snprintf
 #include "sim.h"
 #include "config.h"
 #include "dr_wav.h"
 #include "log.h"
 #include "palette.h"
+
+#define SK_ENV_PRIV
+#include "env.h"
 #include "bigverb.h"
 
 #define SIM_PERIOD 4500
@@ -35,6 +37,9 @@ typedef struct SynthVoice {
 
   // elapsed frames
   Index frame;
+
+  // envelope state
+  sk_env envelope;
 
 } SynthVoice;
 
@@ -222,6 +227,13 @@ static Void sim_step_model()
           voice->duration = read_literal(v_duration, 0);
           // @rdk: use proper maximum value once we've sorted out literals
           voice->volume = read_literal(v_velocity, 8) / 8.f;
+
+          // this will be set on trigger, later
+          sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
+          sk_env_attack(&voice->envelope, 0.005f);
+          sk_env_release(&voice->envelope, 0.2f);
+          sk_env_hold(&voice->envelope, 0.005f);
+          sk_env_tick(&voice->envelope, 1.f);
         }
       }
 
@@ -270,10 +282,13 @@ static Void sim_step_synth_voice(Index vi, F32* out, Index frames)
   const Index delta = MIN(frames, remaining);
 
   for (Index i = 0; i < delta; i++) {
+    const F32 volume = sk_env_tick(&voice->envelope, 0);
+    // platform_log(LOG_LEVEL_VERBOSE, "volume: %f", volume);
     const Index iframe = voice->frame + i;
     const F32 sin_value = sinf(hz * SIM_PI * iframe / Config_AUDIO_SAMPLE_RATE);
-    const F32 volume = (duration - iframe) / (F32) duration;
-    const F32 sample = sin_value * volume * voice->volume;
+    // const F32 volume = (duration - iframe) / (F32) duration;
+    // const F32 sample = sin_value * volume * voice->volume;
+    const F32 sample = sin_value * volume;
     out[STEREO * i + 0] += sample;
     out[STEREO * i + 1] += sample;
   }
@@ -474,11 +489,17 @@ Void sim_init()
     clear_sampler_voice(i);
   }
 
-  // initialize sndkit data
+  // initialize sndkit bigverb
   bigverb = sk_bigverb_new(Config_AUDIO_SAMPLE_RATE);
   ASSERT(bigverb);
   sk_bigverb_size(bigverb, 0.93f);
   sk_bigverb_cutoff(bigverb, 10000.f);
+
+  // initialize voice envelopes
+  for (Index i = 0; i < SIM_VOICES; i++) {
+    SynthVoice* const synth_voice = &sim_synth_voices[i];
+    sk_env_init(&synth_voice->envelope, Config_AUDIO_SAMPLE_RATE);
+  }
 }
 
 #define DR_WAV_IMPLEMENTATION

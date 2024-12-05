@@ -27,27 +27,27 @@ typedef struct SynthVoice {
   // envelope state
   sk_env envelope;
 
+  // elapsed frames
+  Index frame;
+
   // pitch in semitones
   S32 pitch;
 
   // fractional volume
   F32 volume;
 
-  // elapsed frames
-  Index frame;
-
 } SynthVoice;
 
 typedef struct SamplerVoice {
 
-  // sound index
-  S32 sound;
-
-  // envelope duration
-  S32 duration;
+  // envelope state
+  sk_env envelope;
 
   // elapsed frames
   Index frame;
+
+  // sound index
+  S32 sound;
 
   // fractional volume
   F32 volume;
@@ -260,21 +260,40 @@ static Void sim_step_model()
 
           // parameter positions
           const V2S p_sound     = v2s_add(origin, v2s_scale(uv, 1));
-          const V2S p_duration  = v2s_add(origin, v2s_scale(uv, 2));
+          const V2S p_offset    = v2s_add(origin, v2s_scale(uv, 2));
+          const V2S p_reverse   = v2s_add(origin, v2s_scale(uv, 3));
+          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 4));
+          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 5));
+          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 6));
 
           // parameter values
           const Value v_sound     = model_get(m, p_sound);
-          const Value v_duration  = model_get(m, p_duration);
+          const Value v_offset    = model_get(m, p_offset);
+          const Value v_reverse   = model_get(m, p_reverse);
+          const Value v_attack    = model_get(m, p_attack);
+          const Value v_hold      = model_get(m, p_hold);
+          const Value v_release   = model_get(m, p_release);
 
           // literal values
           const S32 sound_index   = read_literal(v_sound, INDEX_NONE);
-          const S32 duration      = read_literal(v_duration, 0);
+          const S32 offset        = read_literal(v_offset, 0);
+          const S32 reverse       = read_literal(v_reverse, 0);
+          const S32 attack        = read_literal(v_attack, 0);
+          const S32 hold          = read_literal(v_hold, 0);
+          const S32 release       = read_literal(v_release, 0);
+
+          // curved values
+          const F32 curved_attack =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * attack);
+          const F32 curved_hold =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * hold);
+          const F32 curved_release =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * release);
 
           if (sound_index != INDEX_NONE)
           {
             SamplerVoice* const voice = &sim_sampler_voices[vi];
             voice->sound = sound_index;
-            voice->duration = duration;
             voice->frame = 0;
             voice->volume = 0.2f;
           }

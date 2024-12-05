@@ -49,6 +49,9 @@ typedef struct SamplerVoice {
   // sound index
   S32 sound;
 
+  // reverse playback
+  Bool reverse;
+
   // fractional volume
   F32 volume;
 
@@ -244,7 +247,8 @@ static Void sim_step_model()
           sk_env_release(&voice->envelope, curved_release);
           sk_env_tick(&voice->envelope, 1.f);
 
-          // initialize remaining parameters
+          // initialize parameters
+          voice->frame = 0;
           voice->pitch = OCTAVE * octave + pitch;
           voice->volume = (F32) velocity / MODEL_RADIX;
 
@@ -261,14 +265,16 @@ static Void sim_step_model()
           // parameter positions
           const V2S p_sound     = v2s_add(origin, v2s_scale(uv, 1));
           const V2S p_offset    = v2s_add(origin, v2s_scale(uv, 2));
-          const V2S p_reverse   = v2s_add(origin, v2s_scale(uv, 3));
-          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 4));
-          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 5));
-          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 6));
+          const V2S p_velocity  = v2s_add(origin, v2s_scale(uv, 3));
+          const V2S p_reverse   = v2s_add(origin, v2s_scale(uv, 4));
+          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 5));
+          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 6));
+          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 7));
 
           // parameter values
           const Value v_sound     = model_get(m, p_sound);
           const Value v_offset    = model_get(m, p_offset);
+          const Value v_velocity  = model_get(m, p_velocity);
           const Value v_reverse   = model_get(m, p_reverse);
           const Value v_attack    = model_get(m, p_attack);
           const Value v_hold      = model_get(m, p_hold);
@@ -277,6 +283,7 @@ static Void sim_step_model()
           // literal values
           const S32 sound_index   = read_literal(v_sound, INDEX_NONE);
           const S32 offset        = read_literal(v_offset, 0);
+          const S32 velocity      = read_literal(v_velocity, 0);
           const S32 reverse       = read_literal(v_reverse, 0);
           const S32 attack        = read_literal(v_attack, 0);
           const S32 hold          = read_literal(v_hold, 0);
@@ -290,12 +297,25 @@ static Void sim_step_model()
           const F32 curved_release =
             sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * release);
 
-          if (sound_index != INDEX_NONE)
-          {
+          if (sound_index != INDEX_NONE) {
+
+            // voice to initialize
             SamplerVoice* const voice = &sim_sampler_voices[vi];
+            PaletteSound* const sound = &sim_palette->sounds[sound_index];
+
+            // initialize envelope
+            sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
+            sk_env_attack(&voice->envelope, curved_attack);
+            sk_env_hold(&voice->envelope, curved_hold);
+            sk_env_release(&voice->envelope, curved_release);
+            sk_env_tick(&voice->envelope, 1.f);
+
+            // initialize parameters
+            voice->frame = (offset * sound->frames) / MODEL_RADIX;
             voice->sound = sound_index;
-            voice->frame = 0;
-            voice->volume = 0.2f;
+            voice->reverse = (Bool) reverse;
+            voice->volume = (F32) velocity / MODEL_RADIX;
+
           }
         }
       }
@@ -316,10 +336,10 @@ static Void sim_step_synth_voice(Index vi, F32* out, Index frames)
     out[STEREO * i + 0] += sample * volume * voice->volume;
     out[STEREO * i + 1] += sample * volume * voice->volume;
   }
+
   voice->frame += frames;
   if (voice->envelope.mode == 0) {
     clear_synth_voice(vi);
-    platform_log(LOG_LEVEL_DEBUG, "clear synth voice %lld", vi);
   }
 }
 
@@ -328,23 +348,21 @@ static Void sim_step_sampler_voice(Index vi, F32* out, Index frames)
   ASSERT(vi != INDEX_NONE);
   SamplerVoice* const voice = &sim_sampler_voices[vi];
   const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
-  const Index duration = (voice->duration + 1) * VOICE_DURATION;
 
   // We check this here because the palette can change.
   if (sound->frames > 0) {
-
     ASSERT(sound->interleaved);
     for (Index i = 0; i < frames; i++) {
-      const Index iframe = voice->frame + i;
-      const Index wrap = iframe % sound->frames;
-      out[STEREO * i + 0] += voice->volume * sound->interleaved[STEREO * wrap + 0];
-      out[STEREO * i + 1] += voice->volume * sound->interleaved[STEREO * wrap + 1];
+      const F32 volume = sk_env_tick(&voice->envelope, 0);
+      const Index current_frame = voice->frame + i;
+      const Index residue = current_frame % sound->frames;
+      out[STEREO * i + 0] += sound->interleaved[STEREO * residue + 0] * volume * voice->volume;
+      out[STEREO * i + 1] += sound->interleaved[STEREO * residue + 1] * volume * voice->volume;
     }
-
   }
 
   voice->frame += frames;
-  if (voice->frame >= duration) {
+  if (voice->envelope.mode == 0) {
     clear_sampler_voice(vi);
   }
 }

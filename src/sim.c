@@ -18,13 +18,14 @@
 #define OCTAVE 12
 #define REVERB_WET 0.12f
 
-#define SIM_PI                 3.141592653589793238f
-#define SIM_TWELFTH_ROOT_TWO   1.059463094359295264f
+#define SIM_PI                  3.141592653589793238f
+#define SIM_TWELFTH_ROOT_TWO    1.059463094359295264f
+#define SIM_EULER               2.718281828459045235f
 
 typedef struct SynthVoice {
 
-  // whether the voice is playing
-  Bool active;
+  // envelope state
+  sk_env envelope;
 
   // pitch in semitones
   S32 pitch;
@@ -32,14 +33,8 @@ typedef struct SynthVoice {
   // fractional volume
   F32 volume;
 
-  // envelope duration
-  S32 duration;
-
   // elapsed frames
   Index frame;
-
-  // envelope state
-  sk_env envelope;
 
 } SynthVoice;
 
@@ -97,6 +92,8 @@ static Index sim_head = 0;
 static Index sim_frame = 0;
 static Palette* sim_palette = &empty_palette;
 static Bool sim_reverb = false;
+static F32 sim_envelope_coefficient = 0.0001f;
+static F32 sim_power_coefficient = 0.3f;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -208,32 +205,49 @@ static Void sim_step_model()
           // parameter positions
           const V2S p_octave    = v2s_add(origin, v2s_scale(uv, 1));
           const V2S p_pitch     = v2s_add(origin, v2s_scale(uv, 2));
-          const V2S p_duration  = v2s_add(origin, v2s_scale(uv, 3));
-          const V2S p_velocity  = v2s_add(origin, v2s_scale(uv, 4));
+          const V2S p_velocity  = v2s_add(origin, v2s_scale(uv, 3));
+          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 4));
+          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 5));
+          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 6));
 
           // parameter values
           const Value v_octave    = model_get(m, p_octave);
           const Value v_pitch     = model_get(m, p_pitch);
-          const Value v_duration  = model_get(m, p_duration);
           const Value v_velocity  = model_get(m, p_velocity);
+          const Value v_attack    = model_get(m, p_attack);
+          const Value v_hold      = model_get(m, p_hold);
+          const Value v_release   = model_get(m, p_release);
 
-          const S32 pitch   = read_literal(v_pitch, 0);
-          const S32 octave  = read_literal(v_octave, 0);
+          // literal values
+          const S32 octave    = read_literal(v_octave, 0);
+          const S32 pitch     = read_literal(v_pitch, 0);
+          const S32 velocity  = read_literal(v_velocity, 0);
+          const S32 attack    = read_literal(v_attack, 0);
+          const S32 hold      = read_literal(v_hold, 0);
+          const S32 release   = read_literal(v_release, 0);
 
+          // curved values
+          const F32 curved_attack =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * attack);
+          const F32 curved_hold =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * hold);
+          const F32 curved_release =
+            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * release);
+
+          // voice to initialize
           SynthVoice* const voice = &sim_synth_voices[vi];
-          voice->active = true;
-          voice->frame = 0;
-          voice->pitch = OCTAVE * octave + pitch;
-          voice->duration = read_literal(v_duration, 0);
-          // @rdk: use proper maximum value once we've sorted out literals
-          voice->volume = read_literal(v_velocity, 8) / 8.f;
 
-          // this will be set on trigger, later
+          // initialize envelope
           sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
-          sk_env_attack(&voice->envelope, 0.005f);
-          sk_env_release(&voice->envelope, 0.2f);
-          sk_env_hold(&voice->envelope, 0.005f);
+          sk_env_attack(&voice->envelope, curved_attack);
+          sk_env_hold(&voice->envelope, curved_hold);
+          sk_env_release(&voice->envelope, curved_release);
           sk_env_tick(&voice->envelope, 1.f);
+
+          // initialize remaining parameters
+          voice->pitch = OCTAVE * octave + pitch;
+          voice->volume = (F32) velocity / MODEL_RADIX;
+
         }
       }
 
@@ -274,27 +288,19 @@ static Void sim_step_synth_voice(Index vi, F32* out, Index frames)
 {
   ASSERT(vi != INDEX_NONE);
   SynthVoice* const voice = &sim_synth_voices[vi];
-  const Index duration = (voice->duration + 1) * VOICE_DURATION;
-  const F32 pitch = (F32) voice->pitch;
-  const F32 hz = to_hz(pitch);
+  const F32 hz = to_hz((F32) voice->pitch);
 
-  const Index remaining = duration - voice->frame;
-  const Index delta = MIN(frames, remaining);
-
-  for (Index i = 0; i < delta; i++) {
+  for (Index i = 0; i < frames; i++) {
     const F32 volume = sk_env_tick(&voice->envelope, 0);
-    // platform_log(LOG_LEVEL_VERBOSE, "volume: %f", volume);
-    const Index iframe = voice->frame + i;
-    const F32 sin_value = sinf(hz * SIM_PI * iframe / Config_AUDIO_SAMPLE_RATE);
-    // const F32 volume = (duration - iframe) / (F32) duration;
-    // const F32 sample = sin_value * volume * voice->volume;
-    const F32 sample = sin_value * volume;
-    out[STEREO * i + 0] += sample;
-    out[STEREO * i + 1] += sample;
+    const Index current_frame = voice->frame + i;
+    const F32 sample = sinf(hz * SIM_PI * current_frame / Config_AUDIO_SAMPLE_RATE);
+    out[STEREO * i + 0] += sample * volume * voice->volume;
+    out[STEREO * i + 1] += sample * volume * voice->volume;
   }
-  voice->frame += delta;
-  if (delta == remaining) {
+  voice->frame += frames;
+  if (voice->envelope.mode == 0) {
     clear_synth_voice(vi);
+    platform_log(LOG_LEVEL_DEBUG, "clear synth voice %lld", vi);
   }
 }
 
@@ -334,7 +340,7 @@ static Void sim_partial_step(F32* audio_out, Index frames)
   // update synth voices
   for (Index i = 0; i < SIM_VOICES; i++) {
     SynthVoice* const voice = &sim_synth_voices[i];
-    if (voice->active) {
+    if (voice->envelope.mode) {
       sim_step_synth_voice(i, audio_out, frames);
     }
   }

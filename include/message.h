@@ -6,7 +6,7 @@
 
 #include "model.h"
 
-#define MESSAGE_QUEUE_CAPACITY 0x400
+#define MESSAGE_QUEUE_CAPACITY 0x100
 
 typedef enum MessageTag {
   MESSAGE_NONE,

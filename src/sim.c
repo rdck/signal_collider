@@ -55,8 +55,8 @@ typedef struct SamplerVoice {
   // sound index
   S32 sound;
 
-  // reverse playback
-  Bool reverse;
+  // relative pitch
+  S32 pitch;
 
   // fractional volume
   F32 volume;
@@ -264,10 +264,10 @@ static Void sim_step_model()
           const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 1))), INDEX_NONE);
           const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 2))), 0);
           const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 3))), 0);
-          const S32 reverse     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
-          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
-          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
-          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 7))), 0);
+          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
+          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
+          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
+          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 7))), 0);
 
           // curved values
           const F32 curved_attack =
@@ -293,7 +293,7 @@ static Void sim_step_model()
             // initialize parameters
             voice->frame = (offset * sound->frames) / MODEL_RADIX;
             voice->sound = sound_index;
-            voice->reverse = (Bool) reverse;
+            voice->pitch = pitch - MODEL_RADIX / 2;
             voice->volume = (F32) velocity / MODEL_RADIX;
 
           }
@@ -329,22 +329,35 @@ static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
   SamplerVoice* const voice = &sim_sampler_voices[voice_index];
   const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
 
-  // Cut playback at the end of the sample.
-  const Index delta = MIN(frames, sound->frames - voice->frame);
+  // playback rate
+  const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
 
   // We check this here because the palette can change.
   if (sound->frames > 0) {
     ASSERT(sound->interleaved);
-    for (Index i = 0; i < delta; i++) {
+    for (Index i = 0; i < frames; i++) {
       const F32 volume = sk_env_tick(&voice->envelope, 0) * voice->volume;
-      const Index current_frame = voice->frame + i;
-      out[STEREO * i + 0] += sound->interleaved[STEREO * current_frame + 0] * volume;
-      out[STEREO * i + 1] += sound->interleaved[STEREO * current_frame + 1] * volume;
+      const F32 head = rate * (voice->frame + i);
+      F32 integral_f32;
+      const F32 fractional = modff(head, &integral_f32);
+      const Index integral = (Index) integral_f32;
+      if (integral < sound->frames - 1) {
+        const F32 lhs = f32_lerp(
+            sound->interleaved[STEREO * integral + 0],
+            sound->interleaved[STEREO * integral + 2],
+            fractional);
+        const F32 rhs = f32_lerp(
+            sound->interleaved[STEREO * integral + 1],
+            sound->interleaved[STEREO * integral + 3],
+            fractional);
+        out[STEREO * i + 0] += volume * lhs;
+        out[STEREO * i + 1] += volume * rhs;
+      }
     }
   }
 
-  voice->frame += delta;
-  if (voice->envelope.mode == 0 || voice->frame >= sound->frames) {
+  voice->frame += frames;
+  if (voice->envelope.mode == 0) {
     clear_sampler_voice(voice_index);
   }
 }

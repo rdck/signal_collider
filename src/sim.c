@@ -125,6 +125,7 @@ static Index sim_sampler_voice_head = 0;
 static sk_bigverb* sim_bigverb = NULL;
 
 _Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
+_Static_assert(MODEL_RADIX == PALETTE_SOUNDS);
 
 static F32 to_hz(F32 pitch)
 {

@@ -127,7 +127,7 @@ static Void run_console_command(const Char* command)
       // For now, we're just allocating this permanently. Once we have more
       // detailed communication between the audio thread and the render thread,
       // we can free it when it's no longer used.
-      Palette* const palette = malloc(sizeof(*palette));
+      Palette* const palette = calloc(1, sizeof(*palette));
       ASSERT(palette);
 
       for (Index i = 0; i < line_index; i++) {

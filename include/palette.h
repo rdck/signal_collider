@@ -2,7 +2,7 @@
 
 #include "prelude.h"
 
-#define PALETTE_SOUNDS 32
+#define PALETTE_SOUNDS 36
 
 typedef struct PaletteSound {
   const Char* path;     // relative path

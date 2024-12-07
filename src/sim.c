@@ -490,6 +490,10 @@ Void sim_step(F32* audio_out, Index frames)
           {
             model_set(m, message.write.point, message.write.value);
           } break;
+        case MESSAGE_CLEAR:
+          {
+            memset(m->map, 0, sizeof(m->map));
+          } break;
 
       }
 

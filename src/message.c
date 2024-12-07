@@ -11,6 +11,13 @@ Message message_write(V2S point, Value value)
   return out;
 }
 
+Message message_clear()
+{
+  Message out;
+  out.tag = MESSAGE_CLEAR;
+  return out;
+}
+
 Message message_alloc(Index index)
 {
   Message out;

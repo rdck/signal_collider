@@ -25,6 +25,7 @@
 #define ENVELOPE_TOKEN "envelope"
 #define COEFFICIENT_TOKEN "coefficient"
 #define EXPONENT_TOKEN "exponent"
+#define CLEAR_TOKEN "clear"
 
 #define COMPARE(command, token) strncmp(command, token, sizeof(token) - 1)
 
@@ -242,6 +243,11 @@ static Void run_console_command(const Char* command)
       const F32 mix = (F32) atof(mix_string);
       message_enqueue(&control_queue, message_reverb_mix(mix));
     }
+
+  } else if (COMPARE(command, CLEAR_TOKEN) == 0) {
+
+    message_enqueue(&input_queue, message_clear());
+
   }
 }
 

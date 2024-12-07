@@ -329,20 +329,22 @@ static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
   SamplerVoice* const voice = &sim_sampler_voices[voice_index];
   const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
 
+  // Cut playback at the end of the sample.
+  const Index delta = MIN(frames, sound->frames - voice->frame);
+
   // We check this here because the palette can change.
   if (sound->frames > 0) {
     ASSERT(sound->interleaved);
-    for (Index i = 0; i < frames; i++) {
-      const F32 volume = sk_env_tick(&voice->envelope, 0);
+    for (Index i = 0; i < delta; i++) {
+      const F32 volume = sk_env_tick(&voice->envelope, 0) * voice->volume;
       const Index current_frame = voice->frame + i;
-      const Index residue = current_frame % sound->frames;
-      out[STEREO * i + 0] += sound->interleaved[STEREO * residue + 0] * volume * voice->volume;
-      out[STEREO * i + 1] += sound->interleaved[STEREO * residue + 1] * volume * voice->volume;
+      out[STEREO * i + 0] += sound->interleaved[STEREO * current_frame + 0] * volume;
+      out[STEREO * i + 1] += sound->interleaved[STEREO * current_frame + 1] * volume;
     }
   }
 
-  voice->frame += frames;
-  if (voice->envelope.mode == 0) {
+  voice->frame += delta;
+  if (voice->envelope.mode == 0 || voice->frame >= sound->frames) {
     clear_sampler_voice(voice_index);
   }
 }

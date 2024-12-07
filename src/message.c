@@ -34,6 +34,14 @@ Message message_load(ModelStorage* storage)
   return out;
 }
 
+Message message_tempo(S32 tempo)
+{
+  Message out;
+  out.tag = MESSAGE_TEMPO;
+  out.tempo = tempo;
+  return out;
+}
+
 Message message_palette(Palette* palette)
 {
   Message out;

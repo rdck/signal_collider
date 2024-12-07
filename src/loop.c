@@ -1,4 +1,5 @@
 #include <string.h>
+#include <stdlib.h>
 #include "loop.h"
 #include "render.h"
 #include "sim.h"
@@ -26,6 +27,7 @@
 #define COEFFICIENT_TOKEN "coefficient"
 #define EXPONENT_TOKEN "exponent"
 #define CLEAR_TOKEN "clear"
+#define TEMPO_TOKEN "tempo"
 
 #define COMPARE(command, token) strncmp(command, token, sizeof(token) - 1)
 
@@ -155,6 +157,12 @@ static Void run_console_command(const Char* command)
       message_enqueue(&control_queue, message);
 
     }
+
+  } else if (COMPARE(command, TEMPO_TOKEN) == 0) {
+
+    const Char* const tempo_string = command + sizeof(TEMPO_TOKEN);
+    const S32 tempo = atoi(tempo_string);
+    message_enqueue(&control_queue, message_tempo(tempo));
 
   } else if (COMPARE(command, SAVE_TOKEN) == 0) {
 

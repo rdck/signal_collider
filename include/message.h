@@ -25,6 +25,7 @@ typedef enum MessageTag {
   MESSAGE_LOAD,
 
   // control queue
+  MESSAGE_TEMPO,
   MESSAGE_PALETTE,
   MESSAGE_GLOBAL_VOLUME,
   MESSAGE_ENVELOPE_COEFFICIENT,
@@ -56,6 +57,7 @@ typedef struct Message {
   union {
     Write write;
     Allocate alloc;
+    S32 tempo;
     Palette* palette;
     ModelStorage* storage;
     Bool flag;
@@ -75,6 +77,7 @@ Message message_write(V2S point, Value value);
 Message message_clear();
 Message message_alloc(Index index);
 Message message_load(ModelStorage* storage);
+Message message_tempo(S32 tempo);
 Message message_palette(Palette* pointer);
 Message message_global_volume(F32 volume);
 Message message_envelope_coefficient(F32 coefficient);

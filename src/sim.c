@@ -110,6 +110,7 @@ static Bool sim_reverb_status = false;
 static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;
+static S32 sim_tempo = 130;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -126,6 +127,11 @@ static sk_bigverb* sim_bigverb = NULL;
 
 _Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
 _Static_assert(MODEL_RADIX == PALETTE_SOUNDS);
+
+static Index bpm_to_period(S32 tempo)
+{
+  return (Config_AUDIO_SAMPLE_RATE * 60) / (tempo * 8);
+}
 
 static F32 to_hz(F32 pitch)
 {
@@ -391,9 +397,6 @@ static Void sim_partial_step(F32* audio_out, Index frames)
 
 Void sim_step(F32* audio_out, Index frames)
 {
-  const Index next_tick = sim_tick + SIM_PERIOD;
-  const Index delta = MIN(frames, next_tick - sim_frame);
-
   // process the control queue
   while (message_queue_length(&control_queue) > 0) {
 
@@ -402,6 +405,10 @@ Void sim_step(F32* audio_out, Index frames)
     message_dequeue(&control_queue, &message);
 
     switch (message.tag) {
+      case MESSAGE_TEMPO:
+        {
+          sim_tempo = message.tempo;
+        } break;
       case MESSAGE_PALETTE:
         {
           sim_palette = message.palette;
@@ -437,6 +444,10 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
   }
+
+  // calculate time to next tick
+  const Index next_tick = sim_tick + bpm_to_period(sim_tempo);
+  const Index delta = MIN(frames, next_tick - sim_frame);
 
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
@@ -504,7 +515,7 @@ Void sim_step(F32* audio_out, Index frames)
       const Index remaining = frames - delta;
       sim_partial_step(audio_out, delta);
       sim_step_model();
-      sim_tick += SIM_PERIOD;
+      sim_tick += bpm_to_period(sim_tempo);
       sim_partial_step(audio_out + STEREO * delta, remaining);
     } else {
       sim_partial_step(audio_out, frames);

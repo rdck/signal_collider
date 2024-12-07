@@ -110,7 +110,7 @@ static Bool sim_reverb_status = false;
 static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;
-static S32 sim_tempo = 130;
+static S32 sim_tempo = 80;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};

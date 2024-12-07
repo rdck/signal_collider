@@ -92,11 +92,19 @@ Model sim_history[SIM_HISTORY] = {0};
 // default empty palette
 static Palette empty_palette = {0};
 
-// static audio thread data
+// frame of last beat
 static Index sim_tick = 0;
+
+// index into model history
 static Index sim_head = 0;
+
+// frames elapsed since startup
 static Index sim_frame = 0;
+
+// palette data
 static Palette* sim_palette = &empty_palette;
+
+// global dsp parameters
 static F32 sim_global_volume = 1.f;
 static Bool sim_reverb_status = false;
 static F32 sim_reverb_mix = 0.12f;
@@ -114,7 +122,7 @@ static Index sim_sampler_voice_indices[SIM_VOICES] = {0};
 static Index sim_sampler_voice_head = 0;
 
 // sndkit data
-static sk_bigverb* bigverb = NULL;
+static sk_bigverb* sim_bigverb = NULL;
 
 _Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
 
@@ -190,6 +198,7 @@ static Void sim_step_model()
   // process synth events
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
+
       const V2S origin = { (S32) x, (S32) y };
       const Value value = m->map[y][x];
 
@@ -205,34 +214,18 @@ static Void sim_step_model()
 
       // process synth event
       if (value.tag == VALUE_SYNTH && bang) {
-        const Index vi = pop_synth_voice();
-        if (vi != INDEX_NONE) {
+        const Index voice_index = pop_synth_voice();
+        if (voice_index != INDEX_NONE) {
 
           const V2S uv = unit_vector(DIRECTION_EAST);
 
-          // parameter positions
-          const V2S p_octave    = v2s_add(origin, v2s_scale(uv, 1));
-          const V2S p_pitch     = v2s_add(origin, v2s_scale(uv, 2));
-          const V2S p_velocity  = v2s_add(origin, v2s_scale(uv, 3));
-          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 4));
-          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 5));
-          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 6));
-
           // parameter values
-          const Value v_octave    = model_get(m, p_octave);
-          const Value v_pitch     = model_get(m, p_pitch);
-          const Value v_velocity  = model_get(m, p_velocity);
-          const Value v_attack    = model_get(m, p_attack);
-          const Value v_hold      = model_get(m, p_hold);
-          const Value v_release   = model_get(m, p_release);
-
-          // literal values
-          const S32 octave    = read_literal(v_octave, 0);
-          const S32 pitch     = read_literal(v_pitch, 0);
-          const S32 velocity  = read_literal(v_velocity, 0);
-          const S32 attack    = read_literal(v_attack, 0);
-          const S32 hold      = read_literal(v_hold, 0);
-          const S32 release   = read_literal(v_release, 0);
+          const S32 octave    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 1))), 0);
+          const S32 pitch     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 2))), 0);
+          const S32 velocity  = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 3))), 0);
+          const S32 attack    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
+          const S32 hold      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
+          const S32 release   = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
 
           // curved values
           const F32 curved_attack =
@@ -243,7 +236,7 @@ static Void sim_step_model()
             sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
 
           // voice to initialize
-          SynthVoice* const voice = &sim_synth_voices[vi];
+          SynthVoice* const voice = &sim_synth_voices[voice_index];
 
           // initialize envelope
           sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
@@ -262,37 +255,19 @@ static Void sim_step_model()
 
       // process sampler event
       if (value.tag == VALUE_SAMPLER && bang) {
-        const Index vi = pop_sampler_voice();
-        if (vi != INDEX_NONE) {
+        const Index voice_index = pop_sampler_voice();
+        if (voice_index != INDEX_NONE) {
 
           const V2S uv = unit_vector(DIRECTION_EAST);
 
           // parameter positions
-          const V2S p_sound     = v2s_add(origin, v2s_scale(uv, 1));
-          const V2S p_offset    = v2s_add(origin, v2s_scale(uv, 2));
-          const V2S p_velocity  = v2s_add(origin, v2s_scale(uv, 3));
-          const V2S p_reverse   = v2s_add(origin, v2s_scale(uv, 4));
-          const V2S p_attack    = v2s_add(origin, v2s_scale(uv, 5));
-          const V2S p_hold      = v2s_add(origin, v2s_scale(uv, 6));
-          const V2S p_release   = v2s_add(origin, v2s_scale(uv, 7));
-
-          // parameter values
-          const Value v_sound     = model_get(m, p_sound);
-          const Value v_offset    = model_get(m, p_offset);
-          const Value v_velocity  = model_get(m, p_velocity);
-          const Value v_reverse   = model_get(m, p_reverse);
-          const Value v_attack    = model_get(m, p_attack);
-          const Value v_hold      = model_get(m, p_hold);
-          const Value v_release   = model_get(m, p_release);
-
-          // literal values
-          const S32 sound_index   = read_literal(v_sound, INDEX_NONE);
-          const S32 offset        = read_literal(v_offset, 0);
-          const S32 velocity      = read_literal(v_velocity, 0);
-          const S32 reverse       = read_literal(v_reverse, 0);
-          const S32 attack        = read_literal(v_attack, 0);
-          const S32 hold          = read_literal(v_hold, 0);
-          const S32 release       = read_literal(v_release, 0);
+          const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 1))), INDEX_NONE);
+          const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 2))), 0);
+          const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 3))), 0);
+          const S32 reverse     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
+          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
+          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
+          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 7))), 0);
 
           // curved values
           const F32 curved_attack =
@@ -305,7 +280,7 @@ static Void sim_step_model()
           if (sound_index != INDEX_NONE) {
 
             // voice to initialize
-            SamplerVoice* const voice = &sim_sampler_voices[vi];
+            SamplerVoice* const voice = &sim_sampler_voices[voice_index];
             PaletteSound* const sound = &sim_palette->sounds[sound_index];
 
             // initialize envelope
@@ -328,10 +303,10 @@ static Void sim_step_model()
   }
 }
 
-static Void sim_step_synth_voice(Index vi, F32* out, Index frames)
+static Void sim_step_synth_voice(Index voice_index, F32* out, Index frames)
 {
-  ASSERT(vi != INDEX_NONE);
-  SynthVoice* const voice = &sim_synth_voices[vi];
+  ASSERT(voice_index != INDEX_NONE);
+  SynthVoice* const voice = &sim_synth_voices[voice_index];
   const F32 hz = to_hz((F32) voice->pitch);
 
   for (Index i = 0; i < frames; i++) {
@@ -344,14 +319,14 @@ static Void sim_step_synth_voice(Index vi, F32* out, Index frames)
 
   voice->frame += frames;
   if (voice->envelope.mode == 0) {
-    clear_synth_voice(vi);
+    clear_synth_voice(voice_index);
   }
 }
 
-static Void sim_step_sampler_voice(Index vi, F32* out, Index frames)
+static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
 {
-  ASSERT(vi != INDEX_NONE);
-  SamplerVoice* const voice = &sim_sampler_voices[vi];
+  ASSERT(voice_index != INDEX_NONE);
+  SamplerVoice* const voice = &sim_sampler_voices[voice_index];
   const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
 
   // We check this here because the palette can change.
@@ -368,7 +343,7 @@ static Void sim_step_sampler_voice(Index vi, F32* out, Index frames)
 
   voice->frame += frames;
   if (voice->envelope.mode == 0) {
-    clear_sampler_voice(vi);
+    clear_sampler_voice(voice_index);
   }
 }
 
@@ -433,11 +408,11 @@ Void sim_step(F32* audio_out, Index frames)
         } break;
       case MESSAGE_REVERB_SIZE:
         {
-          sk_bigverb_size(bigverb, message.parameter);
+          sk_bigverb_size(sim_bigverb, message.parameter);
         } break;
       case MESSAGE_REVERB_CUTOFF:
         {
-          sk_bigverb_cutoff(bigverb, message.parameter);
+          sk_bigverb_cutoff(sim_bigverb, message.parameter);
         } break;
       case MESSAGE_REVERB_MIX:
         {
@@ -519,14 +494,13 @@ Void sim_step(F32* audio_out, Index frames)
     if (sim_reverb_status) {
       for (Index i = 0; i < frames; i++) {
         F32 lhs, rhs;
-        sk_bigverb_tick(
-            bigverb,
-            audio_out[2 * i + 0],
-            audio_out[2 * i + 1],
-            &lhs,
-            &rhs);
-        audio_out[2 * i + 0] += sim_reverb_mix * lhs;
-        audio_out[2 * i + 1] += sim_reverb_mix * rhs;
+        sk_bigverb_tick(sim_bigverb, audio_out[2 * i + 0], audio_out[2 * i + 1], &lhs, &rhs);
+        const F32 lhs_dry = (1.f - sim_reverb_mix) * audio_out[2 * i + 0];
+        const F32 rhs_dry = (1.f - sim_reverb_mix) * audio_out[2 * i + 1];
+        const F32 lhs_wet = sim_reverb_mix * lhs;
+        const F32 rhs_wet = sim_reverb_mix * rhs;
+        audio_out[2 * i + 0] = lhs_dry + lhs_wet;
+        audio_out[2 * i + 1] = rhs_dry + rhs_wet;
       }
     }
 
@@ -556,10 +530,10 @@ Void sim_init()
   }
 
   // initialize sndkit bigverb
-  bigverb = sk_bigverb_new(Config_AUDIO_SAMPLE_RATE);
-  ASSERT(bigverb);
-  sk_bigverb_size(bigverb, REVERB_DEFAULT_SIZE);
-  sk_bigverb_cutoff(bigverb, REVERB_DEFAULT_CUTOFF);
+  sim_bigverb = sk_bigverb_new(Config_AUDIO_SAMPLE_RATE);
+  ASSERT(sim_bigverb);
+  sk_bigverb_size(sim_bigverb, REVERB_DEFAULT_SIZE);
+  sk_bigverb_cutoff(sim_bigverb, REVERB_DEFAULT_CUTOFF);
 
   // initialize voice envelopes
   for (Index i = 0; i < SIM_VOICES; i++) {

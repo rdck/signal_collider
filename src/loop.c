@@ -17,6 +17,9 @@
 #define REVERB_TOKEN "reverb"
 #define ON_TOKEN "on"
 #define OFF_TOKEN "off"
+#define VOLUME_TOKEN "volume"
+
+#define COMPARE(command, token) strncmp(command, token, sizeof(token) - 1)
 
 #define RESX 320
 #define RESY 180
@@ -83,7 +86,7 @@ static Direction arrow_direction(KeyCode code)
 static Void run_console_command(const Char* command)
 {
   // palette command
-  if (strncmp(command, PALETTE_TOKEN, sizeof(PALETTE_TOKEN) - 1) == 0) {
+  if (COMPARE(command, PALETTE_TOKEN) == 0) {
 
     // parse path
     const Char* const path = command + sizeof(PALETTE_TOKEN);
@@ -140,12 +143,12 @@ static Void run_console_command(const Char* command)
       }
 
       // send the message
-      Message message = message_pointer(palette);
-      message_enqueue(&palette_queue, message);
+      Message message = message_palette(palette);
+      message_enqueue(&control_queue, message);
 
     }
 
-  } else if (strncmp(command, SAVE_TOKEN, sizeof(SAVE_TOKEN) - 1) == 0) {
+  } else if (COMPARE(command, SAVE_TOKEN) == 0) {
 
     // parse path
     const Char* const path = command + sizeof(SAVE_TOKEN);
@@ -163,7 +166,7 @@ static Void run_console_command(const Char* command)
       platform_log_warn("failed to complete storage write");
     }
 
-  } else if (strncmp(command, LOAD_TOKEN, sizeof(LOAD_TOKEN) - 1) == 0) {
+  } else if (COMPARE(command, LOAD_TOKEN) == 0) {
 
     // parse path
     const Char* const path = command + sizeof(LOAD_TOKEN);
@@ -179,7 +182,7 @@ static Void run_console_command(const Char* command)
           MODEL_SIGNATURE,
           MODEL_SIGNATURE_BYTES);
       if (signature == 0 && storage->version == MODEL_VERSION) {
-        Message message = message_pointer(storage);
+        Message message = message_load(storage);
         message_enqueue(&load_queue, message);
       } else {
         platform_log_warn("save file has incorrect signature or version");
@@ -188,22 +191,28 @@ static Void run_console_command(const Char* command)
       platform_log_warn("save file has incorrect file size");
     }
 
-  } else if (strncmp(command, REVERB_TOKEN, sizeof(REVERB_TOKEN) - 1) == 0) {
+  } else if (COMPARE(command, REVERB_TOKEN) == 0) {
 
     const Char* const status_string = command + sizeof(REVERB_TOKEN);
     Bool status = false;
     if (strncmp(status_string, ON_TOKEN, sizeof(ON_TOKEN) - 1) == 0) {
       status = true;
     }
-    Message message = message_reverb(status);
-    message_enqueue(&reverb_queue, message);
+    Message message = message_reverb_status(status);
+    message_enqueue(&control_queue, message);
 
-  } else if (strncmp(command, QUIT_TOKEN, sizeof(QUIT_TOKEN) - 1) == 0) {
+  } else if (COMPARE(command, QUIT_TOKEN) == 0) {
 
     loop_exit = true;
 
-  }
+  } else if (COMPARE(command, VOLUME_TOKEN) == 0) {
 
+    const Char* const volume_string = command + sizeof(VOLUME_TOKEN);
+    const F32 volume = (F32) atof(volume_string);
+    Message message = message_global_volume(volume);
+    message_enqueue(&control_queue, message);
+
+  }
 }
 
 ProgramStatus loop_config(ProgramConfig* config, const SystemInfo* system)

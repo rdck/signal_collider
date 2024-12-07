@@ -65,8 +65,8 @@ typedef struct LoadContext {
 // extern data
 Model sim_history[SIM_HISTORY];
 
-// FIFO of palette messages from render thread to audio thread
-MessageQueue palette_queue = {0};
+// FIFO of generic messages from render thread to audio thread
+MessageQueue control_queue = {0};
 
 // FIFO of input messages from render thread to audio thread
 MessageQueue input_queue = {0};
@@ -76,9 +76,6 @@ MessageQueue alloc_queue = {0};
 
 // FIFO of load messages from render thread to audio thread
 MessageQueue load_queue = {0};
-
-// FIFO of reverb messages from render thread to audio thread
-MessageQueue reverb_queue = {0};
 
 // FIFO of allocation messages from audio thread to render thread
 MessageQueue free_queue = {0};
@@ -94,7 +91,8 @@ static Index sim_tick = 0;
 static Index sim_head = 0;
 static Index sim_frame = 0;
 static Palette* sim_palette = &empty_palette;
-static Bool sim_reverb = false;
+static F32 sim_global_volume = 1.f;
+static Bool sim_reverb_status = false;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_power_coefficient = 0.3f;
 
@@ -398,34 +396,27 @@ Void sim_step(F32* audio_out, Index frames)
   const Index next_tick = sim_tick + SIM_PERIOD;
   const Index delta = MIN(frames, next_tick - sim_frame);
 
-  // process the palette queue
-  while (message_queue_length(&palette_queue) > 0) {
+  // process the control queue
+  while (message_queue_length(&control_queue) > 0) {
 
     // pull a message off the queue
     Message message = {0};
-    message_dequeue(&palette_queue, &message);
+    message_dequeue(&control_queue, &message);
 
-    // validate the message
-    ASSERT(message.tag == MESSAGE_POINTER);
-    ASSERT(message.pointer);
-
-    // update the palette
-    sim_palette = message.pointer;
-
-  }
-
-  // process the reverb queue
-  while (message_queue_length(&reverb_queue) > 0) {
-
-    // pull a message off the queue
-    Message message = {0};
-    message_dequeue(&reverb_queue, &message);
-
-    // validate the message
-    ASSERT(message.tag == MESSAGE_REVERB);
-
-    // update the reverb flag
-    sim_reverb = message.flag;
+    switch (message.tag) {
+      case MESSAGE_PALETTE:
+        {
+          sim_palette = message.palette;
+        } break;
+      case MESSAGE_GLOBAL_VOLUME:
+        {
+          sim_global_volume = message.parameter;
+        } break;
+      case MESSAGE_REVERB_STATUS:
+        {
+          sim_reverb_status = message.flag;
+        }
+    }
 
   }
 
@@ -458,11 +449,11 @@ Void sim_step(F32* audio_out, Index frames)
       message_dequeue(&load_queue, &message);
 
       // validate the message
-      ASSERT(message.tag == MESSAGE_POINTER);
-      ASSERT(message.pointer);
+      ASSERT(message.tag == MESSAGE_LOAD);
+      ASSERT(message.storage);
 
       // copy the model
-      const ModelStorage* const storage = message.pointer;
+      const ModelStorage* const storage = message.storage;
       memcpy(&m->map, storage->map, sizeof(m->map));
 
     }
@@ -498,9 +489,8 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // reverberate
-    if (sim_reverb) {
-      for (Index i = 0; i < frames; i++)
-      {
+    if (sim_reverb_status) {
+      for (Index i = 0; i < frames; i++) {
         F32 lhs, rhs;
         sk_bigverb_tick(
             bigverb,
@@ -511,6 +501,12 @@ Void sim_step(F32* audio_out, Index frames)
         audio_out[2 * i + 0] += REVERB_WET * lhs;
         audio_out[2 * i + 1] += REVERB_WET * rhs;
       }
+    }
+
+    // attenuate
+    for (Index i = 0; i < frames; i++) {
+      audio_out[2 * i + 0] *= sim_global_volume;
+      audio_out[2 * i + 1] *= sim_global_volume;
     }
 
     // update shared pointer

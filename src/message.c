@@ -19,19 +19,75 @@ Message message_alloc(Index index)
   return out;
 }
 
-Message message_pointer(Void* pointer)
+Message message_load(ModelStorage* storage)
 {
   Message out;
-  out.tag = MESSAGE_POINTER;
-  out.pointer = pointer;
+  out.tag = MESSAGE_LOAD;
+  out.storage = storage;
   return out;
 }
 
-Message message_reverb(Bool status)
+Message message_palette(Palette* palette)
 {
   Message out;
-  out.tag = MESSAGE_REVERB;
+  out.tag = MESSAGE_PALETTE;
+  out.palette = palette;
+  return out;
+}
+
+Message message_global_volume(F32 volume)
+{
+  Message out;
+  out.tag = MESSAGE_GLOBAL_VOLUME;
+  out.parameter = volume;
+  return out;
+}
+
+Message message_envelope_coefficient(F32 coefficient)
+{
+  Message out;
+  out.tag = MESSAGE_ENVELOPE_COEFFICIENT;
+  out.parameter = coefficient;
+  return out;
+}
+
+Message message_envelope_exponent(F32 exponent)
+{
+  Message out;
+  out.tag = MESSAGE_ENVELOPE_EXPONENT;
+  out.parameter = exponent;
+  return out;
+}
+
+Message message_reverb_status(Bool status)
+{
+  Message out;
+  out.tag = MESSAGE_REVERB_STATUS;
   out.flag = status;
+  return out;
+}
+
+Message message_reverb_size(F32 size)
+{
+  Message out;
+  out.tag = MESSAGE_REVERB_SIZE;
+  out.parameter = size;
+  return out;
+}
+
+Message message_reverb_cutoff(F32 cutoff)
+{
+  Message out;
+  out.tag = MESSAGE_REVERB_CUTOFF;
+  out.parameter = cutoff;
+  return out;
+}
+
+Message message_reverb_mix(F32 mix)
+{
+  Message out;
+  out.tag = MESSAGE_REVERB_MIX;
+  out.parameter = mix;
   return out;
 }
 

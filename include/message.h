@@ -5,16 +5,37 @@
 #pragma once
 
 #include "model.h"
+#include "palette.h"
 
 #define MESSAGE_QUEUE_CAPACITY 0x100
 
 typedef enum MessageTag {
+
+  // null value
   MESSAGE_NONE,
+
+  // input queue
   MESSAGE_WRITE,
+
+  // allocation queues
   MESSAGE_ALLOCATE,
-  MESSAGE_POINTER,
-  MESSAGE_REVERB,
+
+  // load queue
+  MESSAGE_LOAD,
+
+  // control queue
+  MESSAGE_PALETTE,
+  MESSAGE_GLOBAL_VOLUME,
+  MESSAGE_ENVELOPE_COEFFICIENT,
+  MESSAGE_ENVELOPE_EXPONENT,
+  MESSAGE_REVERB_STATUS,
+  MESSAGE_REVERB_SIZE,
+  MESSAGE_REVERB_CUTOFF,
+  MESSAGE_REVERB_MIX,
+
+  // sentinel
   MESSAGE_CARDINAL,
+
 } MessageTag;
 
 typedef struct Write {
@@ -34,8 +55,10 @@ typedef struct Message {
   union {
     Write write;
     Allocate alloc;
-    Void* pointer;
+    Palette* palette;
+    ModelStorage* storage;
     Bool flag;
+    F32 parameter;
   };
 } Message;
 
@@ -49,8 +72,15 @@ typedef struct MessageQueue {
 // message builders
 Message message_write(V2S point, Value value);
 Message message_alloc(Index index);
-Message message_pointer(Void* pointer);
-Message message_reverb(Bool status);
+Message message_load(ModelStorage* storage);
+Message message_palette(Palette* pointer);
+Message message_global_volume(F32 volume);
+Message message_envelope_coefficient(F32 coefficient);
+Message message_envelope_exponent(F32 exponent);
+Message message_reverb_status(Bool status);
+Message message_reverb_size(F32 size);
+Message message_reverb_cutoff(F32 cutoff);
+Message message_reverb_mix(F32 mix);
 
 // no effect when queue is full
 Void message_enqueue(MessageQueue* queue, Message message);

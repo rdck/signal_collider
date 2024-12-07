@@ -15,9 +15,14 @@
 #define LOAD_TOKEN "load"
 #define QUIT_TOKEN "quit"
 #define REVERB_TOKEN "reverb"
+#define SIZE_TOKEN "size"
+#define CUTOFF_TOKEN "cutoff"
+#define MIX_TOKEN "mix"
 #define ON_TOKEN "on"
 #define OFF_TOKEN "off"
 #define VOLUME_TOKEN "volume"
+#define ENVELOPE_COEFFICIENT_TOKEN "envelope coefficient"
+#define ENVELOPE_EXPONENT_TOKEN "envelope exponent"
 
 #define COMPARE(command, token) strncmp(command, token, sizeof(token) - 1)
 
@@ -191,16 +196,6 @@ static Void run_console_command(const Char* command)
       platform_log_warn("save file has incorrect file size");
     }
 
-  } else if (COMPARE(command, REVERB_TOKEN) == 0) {
-
-    const Char* const status_string = command + sizeof(REVERB_TOKEN);
-    Bool status = false;
-    if (strncmp(status_string, ON_TOKEN, sizeof(ON_TOKEN) - 1) == 0) {
-      status = true;
-    }
-    Message message = message_reverb_status(status);
-    message_enqueue(&control_queue, message);
-
   } else if (COMPARE(command, QUIT_TOKEN) == 0) {
 
     loop_exit = true;
@@ -212,6 +207,40 @@ static Void run_console_command(const Char* command)
     Message message = message_global_volume(volume);
     message_enqueue(&control_queue, message);
 
+  } else if (COMPARE(command, ENVELOPE_COEFFICIENT_TOKEN) == 0) {
+
+    const Char* const coefficient_string = command + sizeof(ENVELOPE_COEFFICIENT_TOKEN);
+    const F32 coefficient = (F32) atof(coefficient_string);
+    Message message = message_envelope_coefficient(coefficient);
+    message_enqueue(&control_queue, message);
+
+  } else if (COMPARE(command, ENVELOPE_EXPONENT_TOKEN) == 0) {
+
+    const Char* const coefficient_string = command + sizeof(ENVELOPE_EXPONENT_TOKEN);
+    const F32 coefficient = (F32) atof(coefficient_string);
+    Message message = message_envelope_exponent(coefficient);
+    message_enqueue(&control_queue, message);
+
+  } else if (COMPARE(command, REVERB_TOKEN) == 0) {
+
+    const Char* const subcommand = command + sizeof(REVERB_TOKEN);
+    if (COMPARE(subcommand, ON_TOKEN) == 0) {
+      message_enqueue(&control_queue, message_reverb_status(true));
+    } else if (COMPARE(subcommand, OFF_TOKEN) == 0) {
+      message_enqueue(&control_queue, message_reverb_status(false));
+    } else if (COMPARE(subcommand, SIZE_TOKEN) == 0) {
+      const Char* const size_string = subcommand + sizeof(SIZE_TOKEN);
+      const F32 size = (F32) atof(size_string);
+      message_enqueue(&control_queue, message_reverb_size(size));
+    } else if (COMPARE(subcommand, CUTOFF_TOKEN) == 0) {
+      const Char* const cutoff_string = subcommand + sizeof(CUTOFF_TOKEN);
+      const F32 cutoff = (F32) atof(cutoff_string);
+      message_enqueue(&control_queue, message_reverb_cutoff(cutoff));
+    } else if (COMPARE(subcommand, MIX_TOKEN) == 0) {
+      const Char* const mix_string = subcommand + sizeof(MIX_TOKEN);
+      const F32 mix = (F32) atof(mix_string);
+      message_enqueue(&control_queue, message_reverb_mix(mix));
+    }
   }
 }
 

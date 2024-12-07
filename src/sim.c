@@ -1,10 +1,14 @@
+// system includes
 #include <math.h>
+
+// local includes
 #include "sim.h"
 #include "config.h"
 #include "dr_wav.h"
 #include "log.h"
 #include "palette.h"
 
+// sndkit includes
 #define SK_ENV_PRIV
 #include "env.h"
 #include "bigverb.h"
@@ -16,11 +20,13 @@
 #define REFERENCE_ROOT 33
 #define STEREO 2
 #define OCTAVE 12
-#define REVERB_WET 0.12f
 
 #define SIM_PI                  3.141592653589793238f
 #define SIM_TWELFTH_ROOT_TWO    1.059463094359295264f
 #define SIM_EULER               2.718281828459045235f
+
+#define REVERB_DEFAULT_SIZE 0.93f
+#define REVERB_DEFAULT_CUTOFF 10000.f
 
 typedef struct SynthVoice {
 
@@ -93,8 +99,9 @@ static Index sim_frame = 0;
 static Palette* sim_palette = &empty_palette;
 static F32 sim_global_volume = 1.f;
 static Bool sim_reverb_status = false;
+static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
-static F32 sim_power_coefficient = 0.3f;
+static F32 sim_envelope_exponent = 0.3f;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -229,11 +236,11 @@ static Void sim_step_model()
 
           // curved values
           const F32 curved_attack =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * attack);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
           const F32 curved_hold =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * hold);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
           const F32 curved_release =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * release);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
 
           // voice to initialize
           SynthVoice* const voice = &sim_synth_voices[vi];
@@ -289,11 +296,11 @@ static Void sim_step_model()
 
           // curved values
           const F32 curved_attack =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * attack);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
           const F32 curved_hold =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * hold);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
           const F32 curved_release =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_power_coefficient * release);
+            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
 
           if (sound_index != INDEX_NONE) {
 
@@ -412,10 +419,30 @@ Void sim_step(F32* audio_out, Index frames)
         {
           sim_global_volume = message.parameter;
         } break;
+      case MESSAGE_ENVELOPE_COEFFICIENT:
+        {
+          sim_envelope_coefficient = message.parameter;
+        } break;
+      case MESSAGE_ENVELOPE_EXPONENT:
+        {
+          sim_envelope_exponent = message.parameter;
+        } break;
       case MESSAGE_REVERB_STATUS:
         {
           sim_reverb_status = message.flag;
-        }
+        } break;
+      case MESSAGE_REVERB_SIZE:
+        {
+          sk_bigverb_size(bigverb, message.parameter);
+        } break;
+      case MESSAGE_REVERB_CUTOFF:
+        {
+          sk_bigverb_cutoff(bigverb, message.parameter);
+        } break;
+      case MESSAGE_REVERB_MIX:
+        {
+          sim_reverb_mix = message.parameter;
+        } break;
     }
 
   }
@@ -498,8 +525,8 @@ Void sim_step(F32* audio_out, Index frames)
             audio_out[2 * i + 1],
             &lhs,
             &rhs);
-        audio_out[2 * i + 0] += REVERB_WET * lhs;
-        audio_out[2 * i + 1] += REVERB_WET * rhs;
+        audio_out[2 * i + 0] += sim_reverb_mix * lhs;
+        audio_out[2 * i + 1] += sim_reverb_mix * rhs;
       }
     }
 
@@ -531,8 +558,8 @@ Void sim_init()
   // initialize sndkit bigverb
   bigverb = sk_bigverb_new(Config_AUDIO_SAMPLE_RATE);
   ASSERT(bigverb);
-  sk_bigverb_size(bigverb, 0.93f);
-  sk_bigverb_cutoff(bigverb, 10000.f);
+  sk_bigverb_size(bigverb, REVERB_DEFAULT_SIZE);
+  sk_bigverb_cutoff(bigverb, REVERB_DEFAULT_CUTOFF);
 
   // initialize voice envelopes
   for (Index i = 0; i < SIM_VOICES; i++) {

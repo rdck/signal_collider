@@ -10,6 +10,7 @@
 #include "dr_wav.h"
 
 #define TITLE "Signal Collider"
+
 #define PALETTE_TOKEN "palette"
 #define SAVE_TOKEN "save"
 #define LOAD_TOKEN "load"
@@ -21,8 +22,9 @@
 #define ON_TOKEN "on"
 #define OFF_TOKEN "off"
 #define VOLUME_TOKEN "volume"
-#define ENVELOPE_COEFFICIENT_TOKEN "envelope coefficient"
-#define ENVELOPE_EXPONENT_TOKEN "envelope exponent"
+#define ENVELOPE_TOKEN "envelope"
+#define COEFFICIENT_TOKEN "coefficient"
+#define EXPONENT_TOKEN "exponent"
 
 #define COMPARE(command, token) strncmp(command, token, sizeof(token) - 1)
 
@@ -207,19 +209,18 @@ static Void run_console_command(const Char* command)
     Message message = message_global_volume(volume);
     message_enqueue(&control_queue, message);
 
-  } else if (COMPARE(command, ENVELOPE_COEFFICIENT_TOKEN) == 0) {
+  } else if (COMPARE(command, ENVELOPE_TOKEN) == 0) {
 
-    const Char* const coefficient_string = command + sizeof(ENVELOPE_COEFFICIENT_TOKEN);
-    const F32 coefficient = (F32) atof(coefficient_string);
-    Message message = message_envelope_coefficient(coefficient);
-    message_enqueue(&control_queue, message);
-
-  } else if (COMPARE(command, ENVELOPE_EXPONENT_TOKEN) == 0) {
-
-    const Char* const coefficient_string = command + sizeof(ENVELOPE_EXPONENT_TOKEN);
-    const F32 coefficient = (F32) atof(coefficient_string);
-    Message message = message_envelope_exponent(coefficient);
-    message_enqueue(&control_queue, message);
+    const Char* subcommand = command + sizeof(ENVELOPE_TOKEN);
+    if (COMPARE(subcommand, COEFFICIENT_TOKEN) == 0) {
+      const Char* const coefficient_string = subcommand + sizeof(COEFFICIENT_TOKEN);
+      const F32 coefficient = (F32) atof(coefficient_string);
+      message_enqueue(&control_queue, message_envelope_coefficient(coefficient));
+    } else if (COMPARE(subcommand, EXPONENT_TOKEN) == 0) {
+      const Char* const coefficient_string = subcommand + sizeof(EXPONENT_TOKEN);
+      const F32 coefficient = (F32) atof(coefficient_string);
+      message_enqueue(&control_queue, message_envelope_exponent(coefficient));
+    }
 
   } else if (COMPARE(command, REVERB_TOKEN) == 0) {
 

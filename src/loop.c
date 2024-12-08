@@ -55,6 +55,7 @@ static Value value_table[0xFF] = {
   [ '+' ]       = { .tag = VALUE_ADD        },
   [ '-' ]       = { .tag = VALUE_SUB        },
   [ '*' ]       = { .tag = VALUE_MUL        },
+  [ '/' ]       = { .tag = VALUE_DIV        },
   [ '$' ]       = { .tag = VALUE_SAMPLER    },
 };
 

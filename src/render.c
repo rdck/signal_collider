@@ -43,6 +43,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_ADD           ] = '+',
   [ VALUE_SUB           ] = '-',
   [ VALUE_MUL           ] = '*',
+  [ VALUE_DIV           ] = '/',
   [ VALUE_GENERATE      ] = '!',
   [ VALUE_SCALE         ] = '#',
   [ VALUE_SYNTH         ] = '~',

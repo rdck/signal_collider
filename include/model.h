@@ -44,6 +44,7 @@ typedef enum ValueTag {
   VALUE_ADD,
   VALUE_SUB,
   VALUE_MUL,
+  VALUE_DIV,
   VALUE_EQUAL,
   VALUE_CLOCK,
   VALUE_DELAY,
@@ -81,6 +82,7 @@ extern const Value value_bang;
 extern const Value value_add;
 extern const Value value_sub;
 extern const Value value_mul;
+extern const Value value_div;
 extern const Value value_equal;
 extern const Value value_clock;
 extern const Value value_delay;

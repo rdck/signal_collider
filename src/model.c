@@ -16,6 +16,7 @@ const Value value_bang      = { .tag = VALUE_BANG };
 const Value value_add       = { .tag = VALUE_ADD };
 const Value value_sub       = { .tag = VALUE_SUB };
 const Value value_mul       = { .tag = VALUE_MUL };
+const Value value_div       = { .tag = VALUE_DIV };
 const Value value_equal     = { .tag = VALUE_EQUAL };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
@@ -204,6 +205,14 @@ Void model_step(Model* m)
             const S32 r = read_literal(ve, 0);
             const S32 e = (l * r) % MODEL_RADIX;
             model_set(m, ps, value_literal(e));
+          } break;
+
+        case VALUE_DIV:
+          {
+            const S32 dividend = read_literal(vw, 0);
+            const S32 divisor = read_literal(ve, 1);
+            const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
+            model_set(m, ps, value_literal(quotient));
           } break;
 
         case VALUE_GENERATE:

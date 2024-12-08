@@ -78,11 +78,15 @@ typedef struct ModelStorage {
 // constant values
 extern const Value value_none;
 extern const Value value_bang;
-extern const Value value_if;
-extern const Value value_clock;
-extern const Value value_delay;
 extern const Value value_add;
 extern const Value value_sub;
+extern const Value value_mul;
+extern const Value value_equal;
+extern const Value value_clock;
+extern const Value value_delay;
+extern const Value value_random;
+extern const Value value_generate;
+extern const Value value_scale;
 extern const Value value_synth;
 extern const Value value_sampler;
 

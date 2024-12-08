@@ -13,12 +13,15 @@ static V2S unit_vector_table[DIRECTION_CARDINAL] = {
 
 const Value value_none      = { 0 };
 const Value value_bang      = { .tag = VALUE_BANG };
-const Value value_if        = { .tag = VALUE_EQUAL };
-const Value value_clock     = { .tag = VALUE_CLOCK };
-const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_add       = { .tag = VALUE_ADD };
 const Value value_sub       = { .tag = VALUE_SUB };
 const Value value_mul       = { .tag = VALUE_MUL };
+const Value value_equal     = { .tag = VALUE_EQUAL };
+const Value value_clock     = { .tag = VALUE_CLOCK };
+const Value value_delay     = { .tag = VALUE_DELAY };
+const Value value_random    = { .tag = VALUE_RANDOM };
+const Value value_generate  = { .tag = VALUE_GENERATE };
+const Value value_scale     = { .tag = VALUE_SCALE };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
 

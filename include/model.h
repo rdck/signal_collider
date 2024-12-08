@@ -46,6 +46,10 @@ typedef enum ValueTag {
   VALUE_MUL,
   VALUE_DIV,
   VALUE_EQUAL,
+  VALUE_GREATER,
+  VALUE_LESSER,
+  VALUE_AND,
+  VALUE_OR,
   VALUE_CLOCK,
   VALUE_DELAY,
   VALUE_RANDOM,
@@ -85,6 +89,10 @@ extern const Value value_sub;
 extern const Value value_mul;
 extern const Value value_div;
 extern const Value value_equal;
+extern const Value value_greater;
+extern const Value value_lesser;
+extern const Value value_and;
+extern const Value value_or;
 extern const Value value_clock;
 extern const Value value_delay;
 extern const Value value_random;

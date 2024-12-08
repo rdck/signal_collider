@@ -18,6 +18,10 @@ const Value value_sub       = { .tag = VALUE_SUB };
 const Value value_mul       = { .tag = VALUE_MUL };
 const Value value_div       = { .tag = VALUE_DIV };
 const Value value_equal     = { .tag = VALUE_EQUAL };
+const Value value_greater   = { .tag = VALUE_GREATER };
+const Value value_lesser    = { .tag = VALUE_LESSER };
+const Value value_and       = { .tag = VALUE_AND };
+const Value value_or        = { .tag = VALUE_OR };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_random    = { .tag = VALUE_RANDOM };
@@ -175,6 +179,42 @@ Void model_step(Model* m)
                 if (ve.literal == vw.literal) {
                   model_set(m, ps, value_bang);
                 }
+              }
+            } break;
+
+          case VALUE_GREATER:
+            {
+              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
+                if (vw.literal > ve.literal) {
+                  model_set(m, ps, value_bang);
+                }
+              }
+            } break;
+
+          case VALUE_LESSER:
+            {
+              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
+                if (vw.literal < ve.literal) {
+                  model_set(m, ps, value_bang);
+                }
+              }
+            } break;
+
+          case VALUE_AND:
+            {
+              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
+                model_set(m, ps, value_literal(vw.literal & ve.literal));
+              } else if (ve.tag != VALUE_NONE && vw.tag != VALUE_NONE) {
+                model_set(m, ps, value_bang);
+              }
+            } break;
+
+          case VALUE_OR:
+            {
+              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
+                model_set(m, ps, value_literal(vw.literal | ve.literal));
+              } else if (ve.tag != VALUE_NONE || vw.tag != VALUE_NONE) {
+                model_set(m, ps, value_bang);
               }
             } break;
 

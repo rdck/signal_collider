@@ -494,6 +494,14 @@ Void sim_step(F32* audio_out, Index frames)
           {
             model_set(m, message.write.point, message.write.value);
           } break;
+        case MESSAGE_POWER:
+          {
+            const V2S c = message.write.point;
+            Value* const value = &m->map[c.y][c.x];
+            if (is_operator(*value)) {
+              value->powered = ! value->powered;
+            }
+          } break;
         case MESSAGE_CLEAR:
           {
             memset(m->map, 0, sizeof(m->map));

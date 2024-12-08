@@ -59,6 +59,7 @@ typedef enum ValueTag {
 // literal values
 typedef struct Value {
   ValueTag tag;
+  Bool powered;
   S32 literal;
 } Value;
 
@@ -91,6 +92,9 @@ extern const Value value_generate;
 extern const Value value_scale;
 extern const Value value_synth;
 extern const Value value_sampler;
+
+// operator predicate
+Bool is_operator(Value value);
 
 // build a literal value
 Value value_literal(S32 literal);

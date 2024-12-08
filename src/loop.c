@@ -363,16 +363,14 @@ Void loop_event(const Event* event)
             view_state = VIEW_STATE_CONSOLE;
           } else {
             const Value input_value = value_table[c];
+            const S32 literal = literal_of_char(c);
             if (input_value.tag != VALUE_NONE) {
-              const Message message = message_write(cursor, input_value);
-              message_enqueue(&input_queue, message);
-            }
-            if (c == 0x08) {
-              const Message message = message_write(cursor, value_none);
-              message_enqueue(&input_queue, message);
-            }
-            const S32 lvalue = literal_of_char(c);
-            if (lvalue >= 0) {
+              message_enqueue(&input_queue, message_write(cursor, input_value));
+            } else if (c == 0x08) {
+              message_enqueue(&input_queue, message_write(cursor, value_none));
+            } else if (c == ' ') {
+              message_enqueue(&input_queue, message_power(cursor));
+            } else if (literal >= 0) {
               const S32 value = literal_of_char(c);
               const Message message = message_write(cursor, value_literal(value));
               message_enqueue(&input_queue, message);

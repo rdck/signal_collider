@@ -16,6 +16,7 @@ typedef enum MessageTag {
 
   // input queue
   MESSAGE_WRITE,
+  MESSAGE_POWER,
   MESSAGE_CLEAR,
 
   // allocation queues
@@ -74,6 +75,7 @@ typedef struct MessageQueue {
 
 // message builders
 Message message_write(V2S point, Value value);
+Message message_power(V2S point);
 Message message_clear();
 Message message_alloc(Index index);
 Message message_load(ModelStorage* storage);

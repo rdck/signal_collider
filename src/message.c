@@ -11,6 +11,15 @@ Message message_write(V2S point, Value value)
   return out;
 }
 
+Message message_power(V2S point)
+{
+  Message out;
+  out.tag = MESSAGE_POWER;
+  out.write.point = point;
+  out.write.value = value_none;
+  return out;
+}
+
 Message message_clear()
 {
   Message out;

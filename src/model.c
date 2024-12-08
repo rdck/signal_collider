@@ -39,6 +39,18 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
+Bool is_operator(Value value)
+{
+  switch (value.tag) {
+    case VALUE_NONE:
+    case VALUE_LITERAL:
+    case VALUE_BANG:
+      return false;
+    default:
+      return true;
+  }
+}
+
 Value value_literal(S32 literal)
 {
   const Value out = {
@@ -116,9 +128,11 @@ Void model_step(Model* m)
       // cache adjacent coordinates and values
       V2S points[DIRECTION_CARDINAL];
       Value values[DIRECTION_CARDINAL];
+      Bool bang = false;
       for (Direction d = 0; d < DIRECTION_CARDINAL; d++) {
         points[d] = add_unit_vector(origin, d);
         values[d] = model_get(m, points[d]);
+        bang = bang || values[d].tag == VALUE_BANG;
       }
 
       // point abbreviations
@@ -140,108 +154,111 @@ Void model_step(Model* m)
       UNUSED_PARAMETER(pe);
       UNUSED_PARAMETER(pw);
       UNUSED_PARAMETER(pn);
+      
+      if (value.powered || bang) {
 
-      switch (value.tag) {
+        switch (value.tag) {
 
-        case VALUE_CLOCK:
-          {
-            const S32 rate = read_literal(vw, 0) + 1;
-            if (m->frame % rate == 0) {
+          case VALUE_CLOCK:
+            {
+              const S32 rate = read_literal(vw, 0) + 1;
+              if (m->frame % rate == 0) {
+                const S32 mod = map_zero(ve, 8);
+                const S32 output = (m->frame / rate) % mod;
+                model_set(m, ps, value_literal(output));
+              }
+            } break;
+
+          case VALUE_EQUAL:
+            {
+              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
+                if (ve.literal == vw.literal) {
+                  model_set(m, ps, value_bang);
+                }
+              }
+            } break;
+
+          case VALUE_DELAY:
+            {
+              const S32 rate = read_literal(vw, 0) + 1;
               const S32 mod = map_zero(ve, 8);
               const S32 output = (m->frame / rate) % mod;
-              model_set(m, ps, value_literal(output));
-            }
-          } break;
-
-        case VALUE_EQUAL:
-          {
-            if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-              if (ve.literal == vw.literal) {
+              if (output == 0) {
                 model_set(m, ps, value_bang);
               }
-            }
-          } break;
+            } break;
 
-        case VALUE_DELAY:
-          {
-            const S32 rate = read_literal(vw, 0) + 1;
-            const S32 mod = map_zero(ve, 8);
-            const S32 output = (m->frame / rate) % mod;
-            if (output == 0) {
-              model_set(m, ps, value_bang);
-            }
-          } break;
-
-        case VALUE_RANDOM:
-          {
-            const S32 rate = read_literal(vw, 0) + 1;
-            if (m->frame % rate == 0) {
-              const S32 mod = map_zero(ve, 8);
-              const S32 output = rnd_pcg_next(&m->rnd) % mod;
-              model_set(m, ps, value_literal(output));
-            }
-          } break;
-
-        case VALUE_ADD:
-          {
-            const S32 l = read_literal(vw, 0);
-            const S32 r = read_literal(ve, 0);
-            const S32 e = (l + r) % MODEL_RADIX;
-            model_set(m, ps, value_literal(e));
-          } break;
-
-        case VALUE_SUB:
-          {
-            const S32 l = read_literal(vw, 0);
-            const S32 r = read_literal(ve, 0);
-            const S32 e = l - r;
-            const S32 rem = e < 0 ? e + MODEL_RADIX : e;
-            model_set(m, ps, value_literal(rem));
-          } break;
-
-        case VALUE_MUL:
-          {
-            const S32 lhs = read_literal(vw, 0);
-            const S32 rhs = read_literal(ve, 0);
-            const S32 product = (lhs * rhs) % MODEL_RADIX;
-            model_set(m, ps, value_literal(product));
-          } break;
-
-        case VALUE_DIV:
-          {
-            const S32 dividend = read_literal(vw, 0);
-            const S32 divisor = read_literal(ve, 1);
-            const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
-            model_set(m, ps, value_literal(quotient));
-          } break;
-
-        case VALUE_GENERATE:
-          {
-
-            const V2S uv = unit_vector(DIRECTION_WEST);
-            const V2S px = v2s_add(origin, v2s_scale(uv, 2)); // coordinate for X value
-            const V2S py = v2s_add(origin, v2s_scale(uv, 1)); // coordinate for Y value
-            const S32 dx = read_literal(model_get(m, px), 0);
-            const S32 dy = read_literal(model_get(m, py), 0);
-            const V2S dest = v2s_add(origin, v2s(dx, dy));
-
-            // We only generate a value when the relative coordinate is
-            // nonzero, so as not to overwrite the generator operator.
-            if (v2s_equal(dest, origin) == false) {
-              if (ve.tag != VALUE_NONE) {
-                model_set(m, dest, ve);
+          case VALUE_RANDOM:
+            {
+              const S32 rate = read_literal(vw, 0) + 1;
+              if (m->frame % rate == 0) {
+                const S32 mod = map_zero(ve, 8);
+                const S32 output = rnd_pcg_next(&m->rnd) % mod;
+                model_set(m, ps, value_literal(output));
               }
-            }
-          } break;
+            } break;
 
-        case VALUE_SCALE:
-          {
-            const S32 index   = read_literal(ve, 0);
-            const S32 octave  = index / SCALE_CARDINAL;
-            const S32 note    = index % SCALE_CARDINAL;
-            const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;
-            model_set(m, ps, value_literal(pitch));
-          } break;
+          case VALUE_ADD:
+            {
+              const S32 l = read_literal(vw, 0);
+              const S32 r = read_literal(ve, 0);
+              const S32 e = (l + r) % MODEL_RADIX;
+              model_set(m, ps, value_literal(e));
+            } break;
+
+          case VALUE_SUB:
+            {
+              const S32 l = read_literal(vw, 0);
+              const S32 r = read_literal(ve, 0);
+              const S32 e = l - r;
+              const S32 rem = e < 0 ? e + MODEL_RADIX : e;
+              model_set(m, ps, value_literal(rem));
+            } break;
+
+          case VALUE_MUL:
+            {
+              const S32 lhs = read_literal(vw, 0);
+              const S32 rhs = read_literal(ve, 0);
+              const S32 product = (lhs * rhs) % MODEL_RADIX;
+              model_set(m, ps, value_literal(product));
+            } break;
+
+          case VALUE_DIV:
+            {
+              const S32 dividend = read_literal(vw, 0);
+              const S32 divisor = read_literal(ve, 1);
+              const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
+              model_set(m, ps, value_literal(quotient));
+            } break;
+
+          case VALUE_GENERATE:
+            {
+
+              const V2S uv = unit_vector(DIRECTION_WEST);
+              const V2S px = v2s_add(origin, v2s_scale(uv, 2)); // coordinate for X value
+              const V2S py = v2s_add(origin, v2s_scale(uv, 1)); // coordinate for Y value
+              const S32 dx = read_literal(model_get(m, px), 0);
+              const S32 dy = read_literal(model_get(m, py), 0);
+              const V2S dest = v2s_add(origin, v2s(dx, dy));
+
+              // We only generate a value when the relative coordinate is
+              // nonzero, so as not to overwrite the generator operator.
+              if (v2s_equal(dest, origin) == false) {
+                if (ve.tag != VALUE_NONE) {
+                  model_set(m, dest, ve);
+                }
+              }
+            } break;
+
+          case VALUE_SCALE:
+            {
+              const S32 index   = read_literal(ve, 0);
+              const S32 octave  = index / SCALE_CARDINAL;
+              const S32 note    = index % SCALE_CARDINAL;
+              const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;
+              model_set(m, ps, value_literal(pitch));
+            } break;
+        }
       }
     }
   }

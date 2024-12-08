@@ -20,7 +20,8 @@
 #define COLOR_CHANNELS 4
 
 #define COLOR_LITERAL    0xFFFF8080
-#define COLOR_OPERATOR   0xFFFFFFFF
+#define COLOR_POWERED    0xFFFFFFFF
+#define COLOR_UNPOWERED  0xFFA0A0A0
 #define COLOR_EMPTY      0x80FFFFFF
 #define COLOR_CURSOR     0x40FFFFFF
 #define COLOR_CONSOLE_BG 0xFF202020
@@ -260,7 +261,8 @@ Void render_frame(const Model* m)
         const Char literal_character = literal > 9 ? letter : digit;
         draw_character(point, literal_character, COLOR_LITERAL);
       } else if (tag_character != 0) {
-        draw_character(point, tag_character, COLOR_OPERATOR);
+        const U32 color = value.powered ? COLOR_POWERED : COLOR_UNPOWERED;
+        draw_character(point, tag_character, color);
       } else {
         draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
       }

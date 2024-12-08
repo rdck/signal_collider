@@ -45,18 +45,19 @@ static Index render_index = 0;
 static Bool loop_exit = false;
 
 static Value value_table[0xFF] = {
-  [ '=' ]       = { .tag = VALUE_EQUAL      },
-  [ '~' ]       = { .tag = VALUE_SYNTH      },
-  [ 'c' ]       = { .tag = VALUE_CLOCK      },
-  [ 'd' ]       = { .tag = VALUE_DELAY      },
-  [ 'r' ]       = { .tag = VALUE_RANDOM     },
-  [ '!' ]       = { .tag = VALUE_GENERATE   },
-  [ '#' ]       = { .tag = VALUE_SCALE      },
+  [ '!' ]       = { .tag = VALUE_BANG       },
   [ '+' ]       = { .tag = VALUE_ADD        },
   [ '-' ]       = { .tag = VALUE_SUB        },
   [ '*' ]       = { .tag = VALUE_MUL        },
   [ '/' ]       = { .tag = VALUE_DIV        },
-  [ '$' ]       = { .tag = VALUE_SAMPLER    },
+  [ '=' ]       = { .tag = VALUE_EQUAL      },
+  [ 'c' ]       = { .tag = VALUE_CLOCK      },
+  [ 'd' ]       = { .tag = VALUE_DELAY      },
+  [ 'i' ]       = { .tag = VALUE_GENERATE   },
+  [ 'n' ]       = { .tag = VALUE_SCALE      },
+  [ 'r' ]       = { .tag = VALUE_RANDOM     },
+  [ 'x' ]       = { .tag = VALUE_SAMPLER    },
+  [ 'y' ]       = { .tag = VALUE_SYNTH      },
 };
 
 static S32 literal_of_char(Char c)

@@ -36,18 +36,18 @@ static V2S glyph_size = {0};
 static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_LITERAL       ] = 0,
   [ VALUE_BANG          ] = '*',
-  [ VALUE_EQUAL         ] = '=',
-  [ VALUE_CLOCK         ] = 'C',
-  [ VALUE_DELAY         ] = 'D',
-  [ VALUE_RANDOM        ] = 'R',
   [ VALUE_ADD           ] = '+',
   [ VALUE_SUB           ] = '-',
   [ VALUE_MUL           ] = '*',
   [ VALUE_DIV           ] = '/',
-  [ VALUE_GENERATE      ] = '!',
-  [ VALUE_SCALE         ] = '#',
-  [ VALUE_SYNTH         ] = '~',
-  [ VALUE_SAMPLER       ] = '$',
+  [ VALUE_EQUAL         ] = '=',
+  [ VALUE_CLOCK         ] = 'C',
+  [ VALUE_DELAY         ] = 'D',
+  [ VALUE_GENERATE      ] = 'I',
+  [ VALUE_SCALE         ] = 'N',
+  [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_SAMPLER       ] = 'X',
+  [ VALUE_SYNTH         ] = 'Y',
 };
 
 static V2S tile_size(V2S canvas)

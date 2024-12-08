@@ -13,7 +13,7 @@ static V2S unit_vector_table[DIRECTION_CARDINAL] = {
 
 const Value value_none      = { 0 };
 const Value value_bang      = { .tag = VALUE_BANG };
-const Value value_if        = { .tag = VALUE_IF };
+const Value value_if        = { .tag = VALUE_EQUAL };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_add       = { .tag = VALUE_ADD };
@@ -149,7 +149,7 @@ Void model_step(Model* m)
             }
           } break;
 
-        case VALUE_IF:
+        case VALUE_EQUAL:
           {
             if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
               if (ve.literal == vw.literal) {

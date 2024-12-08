@@ -45,7 +45,7 @@ static Index render_index = 0;
 static Bool loop_exit = false;
 
 static Value value_table[0xFF] = {
-  [ '=' ]       = { .tag = VALUE_IF         },
+  [ '=' ]       = { .tag = VALUE_EQUAL      },
   [ '~' ]       = { .tag = VALUE_SYNTH      },
   [ 'c' ]       = { .tag = VALUE_CLOCK      },
   [ 'd' ]       = { .tag = VALUE_DELAY      },

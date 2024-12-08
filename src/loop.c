@@ -164,7 +164,9 @@ static Void run_console_command(const Char* command)
 
     const Char* const tempo_string = command + sizeof(TEMPO_TOKEN);
     const S32 tempo = atoi(tempo_string);
-    message_enqueue(&control_queue, message_tempo(tempo));
+    if (tempo > 0) {
+      message_enqueue(&control_queue, message_tempo(tempo));
+    }
 
   } else if (COMPARE(command, SAVE_TOKEN) == 0) {
 

@@ -92,9 +92,6 @@ Model sim_history[SIM_HISTORY] = {0};
 // default empty palette
 static Palette empty_palette = {0};
 
-// frame of last beat
-static Index sim_tick = 0;
-
 // index into model history
 static Index sim_head = 0;
 
@@ -445,10 +442,6 @@ Void sim_step(F32* audio_out, Index frames)
 
   }
 
-  // calculate time to next tick
-  const Index next_tick = sim_tick + bpm_to_period(sim_tempo);
-  const Index delta = MIN(frames, next_tick - sim_frame);
-
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
@@ -511,14 +504,16 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // compute the audio for this period
-    if (delta < frames) {
-      const Index remaining = frames - delta;
-      sim_partial_step(audio_out, delta);
-      sim_step_model();
-      sim_tick += bpm_to_period(sim_tempo);
-      sim_partial_step(audio_out + STEREO * delta, remaining);
-    } else {
-      sim_partial_step(audio_out, frames);
+    const Index period = bpm_to_period(sim_tempo);
+    Index elapsed = 0;
+    while (elapsed < frames) {
+      const Index residue = sim_frame % period;
+      const Index delta = MIN(period - residue, frames - elapsed);
+      if (residue == 0) {
+        sim_step_model();
+      }
+      sim_partial_step(audio_out + STEREO * elapsed, delta);
+      elapsed += delta;
     }
 
     // reverberate

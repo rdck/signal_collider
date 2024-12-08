@@ -201,10 +201,10 @@ Void model_step(Model* m)
 
         case VALUE_MUL:
           {
-            const S32 l = read_literal(vw, 0);
-            const S32 r = read_literal(ve, 0);
-            const S32 e = (l * r) % MODEL_RADIX;
-            model_set(m, ps, value_literal(e));
+            const S32 lhs = read_literal(vw, 0);
+            const S32 rhs = read_literal(ve, 0);
+            const S32 product = (lhs * rhs) % MODEL_RADIX;
+            model_set(m, ps, value_literal(product));
           } break;
 
         case VALUE_DIV:

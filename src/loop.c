@@ -57,6 +57,8 @@ static Value value_table[0xFF] = {
   [ '|' ]       = { .tag = VALUE_OR         },
   [ 'c' ]       = { .tag = VALUE_CLOCK      },
   [ 'd' ]       = { .tag = VALUE_DELAY      },
+  [ 'h' ]       = { .tag = VALUE_HOP        },
+  [ 'j' ]       = { .tag = VALUE_JUMP       },
   [ 'i' ]       = { .tag = VALUE_GENERATE   },
   [ 'n' ]       = { .tag = VALUE_SCALE      },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },

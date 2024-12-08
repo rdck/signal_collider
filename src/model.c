@@ -24,6 +24,8 @@ const Value value_and       = { .tag = VALUE_AND };
 const Value value_or        = { .tag = VALUE_OR };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
+const Value value_hop       = { .tag = VALUE_HOP };
+const Value value_jump      = { .tag = VALUE_JUMP };
 const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_generate  = { .tag = VALUE_GENERATE };
 const Value value_scale     = { .tag = VALUE_SCALE };
@@ -163,14 +165,37 @@ Void model_step(Model* m)
 
         switch (value.tag) {
 
-          case VALUE_CLOCK:
+          case VALUE_ADD:
             {
-              const S32 rate = read_literal(vw, 0) + 1;
-              if (m->frame % rate == 0) {
-                const S32 mod = map_zero(ve, 8);
-                const S32 output = (m->frame / rate) % mod;
-                model_set(m, ps, value_literal(output));
-              }
+              const S32 l = read_literal(vw, 0);
+              const S32 r = read_literal(ve, 0);
+              const S32 e = (l + r) % MODEL_RADIX;
+              model_set(m, ps, value_literal(e));
+            } break;
+
+          case VALUE_SUB:
+            {
+              const S32 l = read_literal(vw, 0);
+              const S32 r = read_literal(ve, 0);
+              const S32 e = l - r;
+              const S32 rem = e < 0 ? e + MODEL_RADIX : e;
+              model_set(m, ps, value_literal(rem));
+            } break;
+
+          case VALUE_MUL:
+            {
+              const S32 lhs = read_literal(vw, 0);
+              const S32 rhs = read_literal(ve, 0);
+              const S32 product = (lhs * rhs) % MODEL_RADIX;
+              model_set(m, ps, value_literal(product));
+            } break;
+
+          case VALUE_DIV:
+            {
+              const S32 dividend = read_literal(vw, 0);
+              const S32 divisor = read_literal(ve, 1);
+              const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
+              model_set(m, ps, value_literal(quotient));
             } break;
 
           case VALUE_EQUAL:
@@ -218,6 +243,16 @@ Void model_step(Model* m)
               }
             } break;
 
+          case VALUE_CLOCK:
+            {
+              const S32 rate = read_literal(vw, 0) + 1;
+              if (m->frame % rate == 0) {
+                const S32 mod = map_zero(ve, 8);
+                const S32 output = (m->frame / rate) % mod;
+                model_set(m, ps, value_literal(output));
+              }
+            } break;
+
           case VALUE_DELAY:
             {
               const S32 rate = read_literal(vw, 0) + 1;
@@ -228,6 +263,16 @@ Void model_step(Model* m)
               }
             } break;
 
+          case VALUE_HOP:
+            {
+              model_set(m, pe, vw);
+            } break;
+
+          case VALUE_JUMP:
+            {
+              model_set(m, ps, vn);
+            } break;
+
           case VALUE_RANDOM:
             {
               const S32 rate = read_literal(vw, 0) + 1;
@@ -236,39 +281,6 @@ Void model_step(Model* m)
                 const S32 output = rnd_pcg_next(&m->rnd) % mod;
                 model_set(m, ps, value_literal(output));
               }
-            } break;
-
-          case VALUE_ADD:
-            {
-              const S32 l = read_literal(vw, 0);
-              const S32 r = read_literal(ve, 0);
-              const S32 e = (l + r) % MODEL_RADIX;
-              model_set(m, ps, value_literal(e));
-            } break;
-
-          case VALUE_SUB:
-            {
-              const S32 l = read_literal(vw, 0);
-              const S32 r = read_literal(ve, 0);
-              const S32 e = l - r;
-              const S32 rem = e < 0 ? e + MODEL_RADIX : e;
-              model_set(m, ps, value_literal(rem));
-            } break;
-
-          case VALUE_MUL:
-            {
-              const S32 lhs = read_literal(vw, 0);
-              const S32 rhs = read_literal(ve, 0);
-              const S32 product = (lhs * rhs) % MODEL_RADIX;
-              model_set(m, ps, value_literal(product));
-            } break;
-
-          case VALUE_DIV:
-            {
-              const S32 dividend = read_literal(vw, 0);
-              const S32 divisor = read_literal(ve, 1);
-              const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
-              model_set(m, ps, value_literal(quotient));
             } break;
 
           case VALUE_GENERATE:

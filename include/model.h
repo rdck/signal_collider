@@ -52,6 +52,8 @@ typedef enum ValueTag {
   VALUE_OR,
   VALUE_CLOCK,
   VALUE_DELAY,
+  VALUE_HOP,
+  VALUE_JUMP,
   VALUE_RANDOM,
   VALUE_GENERATE,
   VALUE_SCALE,
@@ -95,6 +97,8 @@ extern const Value value_and;
 extern const Value value_or;
 extern const Value value_clock;
 extern const Value value_delay;
+extern const Value value_hop;
+extern const Value value_jump;
 extern const Value value_random;
 extern const Value value_generate;
 extern const Value value_scale;

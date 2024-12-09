@@ -272,7 +272,7 @@ static Void sim_step_model()
           const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
           const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
           const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
-          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), 0);
+          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), MODEL_RADIX / 2);
 
           // curved values
           const F32 curved_attack =

@@ -51,8 +51,10 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_HOP           ] = 'H',
   [ VALUE_INTERFERE     ] = 'I',
   [ VALUE_JUMP          ] = 'J',
+  [ VALUE_LOAD          ] = 'L',
   [ VALUE_NOTE          ] = 'N',
   [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_STORE         ] = 'S',
   [ VALUE_SAMPLER       ] = 'X',
   [ VALUE_SYNTH         ] = 'Y',
 };

@@ -55,8 +55,10 @@ typedef enum ValueTag {
   VALUE_HOP,
   VALUE_INTERFERE,
   VALUE_JUMP,
+  VALUE_LOAD,
   VALUE_NOTE,
   VALUE_RANDOM,
+  VALUE_STORE,
   VALUE_SAMPLER,
   VALUE_SYNTH,
   VALUE_CARDINAL,
@@ -73,14 +75,16 @@ typedef struct Value {
 typedef struct Model {
   Index frame;                            // beat counter
   rnd_pcg_t rnd;                          // random number generator
-  Value map[MODEL_Y][MODEL_X];            // value grid
+  Value registers[MODEL_RADIX];           // register set
+  Value map[MODEL_Y][MODEL_X];            // program memory
 } Model;
 
 // state stored on disk
 typedef struct ModelStorage {
   Byte signature[MODEL_SIGNATURE_BYTES];  // file signature
   S32 version;                            // file format version
-  Value map[MODEL_Y][MODEL_X];            // value grid
+  Value registers[MODEL_RADIX];           // register set
+  Value map[MODEL_Y][MODEL_X];            // program memory
 } ModelStorage;
 
 // constant values
@@ -100,8 +104,10 @@ extern const Value value_delay;
 extern const Value value_hop;
 extern const Value value_interfere;
 extern const Value value_jump;
+extern const Value value_load;
 extern const Value value_note;
 extern const Value value_random;
+extern const Value value_store;
 extern const Value value_sampler;
 extern const Value value_synth;
 

@@ -25,10 +25,12 @@ const Value value_or        = { .tag = VALUE_OR };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_hop       = { .tag = VALUE_HOP };
-const Value value_jump      = { .tag = VALUE_JUMP };
-const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_interfere = { .tag = VALUE_INTERFERE };
+const Value value_jump      = { .tag = VALUE_JUMP };
+const Value value_load      = { .tag = VALUE_LOAD };
 const Value value_note      = { .tag = VALUE_NOTE };
+const Value value_random    = { .tag = VALUE_RANDOM };
+const Value value_store     = { .tag = VALUE_STORE };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
 
@@ -268,21 +270,6 @@ Void model_step(Model* m)
               model_set(m, pe, vw);
             } break;
 
-          case VALUE_JUMP:
-            {
-              model_set(m, ps, vn);
-            } break;
-
-          case VALUE_RANDOM:
-            {
-              const S32 rate = read_literal(vw, 0) + 1;
-              if (m->frame % rate == 0) {
-                const S32 mod = map_zero(ve, 8);
-                const S32 output = rnd_pcg_next(&m->rnd) % mod;
-                model_set(m, ps, value_literal(output));
-              }
-            } break;
-
           case VALUE_INTERFERE:
             {
 
@@ -302,6 +289,19 @@ Void model_step(Model* m)
               }
             } break;
 
+          case VALUE_JUMP:
+            {
+              model_set(m, ps, vn);
+            } break;
+
+          case VALUE_LOAD:
+            {
+              if (vw.tag == VALUE_LITERAL) {
+                const Value v = m->registers[vw.literal];
+                model_set(m, ps, v);
+              }
+            } break;
+
           case VALUE_NOTE:
             {
               const S32 index   = read_literal(ve, 0);
@@ -309,6 +309,23 @@ Void model_step(Model* m)
               const S32 note    = index % SCALE_CARDINAL;
               const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;
               model_set(m, ps, value_literal(pitch));
+            } break;
+
+          case VALUE_RANDOM:
+            {
+              const S32 rate = read_literal(vw, 0) + 1;
+              if (m->frame % rate == 0) {
+                const S32 mod = map_zero(ve, 8);
+                const S32 output = rnd_pcg_next(&m->rnd) % mod;
+                model_set(m, ps, value_literal(output));
+              }
+            } break;
+
+          case VALUE_STORE:
+            {
+              if (vw.tag == VALUE_LITERAL) {
+                m->registers[vw.literal] = ve;
+              }
             } break;
         }
       }

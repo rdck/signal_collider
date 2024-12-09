@@ -60,8 +60,10 @@ static Value value_table[0xFF] = {
   [ 'h' ]       = { .tag = VALUE_HOP        },
   [ 'i' ]       = { .tag = VALUE_INTERFERE  },
   [ 'j' ]       = { .tag = VALUE_JUMP       },
+  [ 'l' ]       = { .tag = VALUE_LOAD       },
   [ 'n' ]       = { .tag = VALUE_NOTE       },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },
+  [ 's' ]       = { .tag = VALUE_STORE      },
   [ 'x' ]       = { .tag = VALUE_SAMPLER    },
   [ 'y' ]       = { .tag = VALUE_SYNTH      },
 };
@@ -184,6 +186,7 @@ static Void run_console_command(const Char* command)
     ModelStorage storage = {0};
     strncpy((Char*) &storage.signature, MODEL_SIGNATURE, MODEL_SIGNATURE_BYTES);
     storage.version = MODEL_VERSION;
+    memcpy(&storage.registers, &m->registers, sizeof(m->registers));
     memcpy(&storage.map, &m->map, sizeof(m->map));
 
     // write file

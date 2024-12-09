@@ -67,7 +67,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_SYNTH         ] = 'Y',
 };
 
-static V2S tile_size(V2S canvas)
+V2S render_tile_size()
 {
   const S32 tile = MAX(glyph_size.x, glyph_size.y);
   return v2s(tile, tile);
@@ -197,11 +197,12 @@ static Void load_font(S32 size)
   free(atlas);
 }
 
-static Void draw_character(V2S point, Char c, U32 color)
+static Void draw_character(V2F camera, V2S point, Char c, U32 color)
 {
   const V2S p     = font_coordinate(c);
-  const V2S tile  = tile_size(canvas_dimensions);
+  const V2S tile  = render_tile_size();
   const V2S delta = v2s_sub(tile, glyph_size);
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
 
   Sprite s;
   s.ta.x = (p.x + 0) / (F32) ASCII_X;
@@ -209,8 +210,8 @@ static Void draw_character(V2S point, Char c, U32 color)
   s.tb.x = (p.x + 1) / (F32) ASCII_X;
   s.tb.y = (p.y + 1) / (F32) ASCII_Y;
   s.color = color;
-  s.root.x = (F32) (point.x * tile.x + delta.x / 2);
-  s.root.y = (F32) (point.y * tile.y + delta.y / 2);
+  s.root.x = (F32) (relative.x * tile.x + delta.x / 2);
+  s.root.y = (F32) (relative.y * tile.y + delta.y / 2);
   s.size = v2f_of_v2s(glyph_size);
   display_draw_sprite_struct(s);
 }
@@ -230,17 +231,18 @@ static Void draw_console_character(V2S point, Char c, U32 color)
   display_draw_sprite_struct(s);
 }
 
-static Void draw_highlight(V2S point, U32 color)
+static Void draw_highlight(V2F camera, V2S point, U32 color)
 {
-  const V2S tile = tile_size(canvas_dimensions);
+  const V2S tile = render_tile_size();
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
   Sprite s;
   s.ta.x = 0.f;
   s.ta.y = 0.f;
   s.tb.x = 1.f;
   s.tb.y = 1.f;
   s.color = color;
-  s.root.x = (F32) point.x * tile.x;
-  s.root.y = (F32) point.y * tile.y;
+  s.root.x = (F32) relative.x * tile.x;
+  s.root.y = (F32) relative.y * tile.y;
   s.size = v2f_of_v2s(tile);
   display_draw_sprite_struct(s);
 }
@@ -255,7 +257,7 @@ Void render_init(V2S dimensions)
   load_font(FONT_SIZE);
 }
 
-Void render_frame(const Model* m)
+Void render_frame(const Model* m, V2F camera)
 {
   // compute map of active memory
   ModelGraph graph;
@@ -270,7 +272,7 @@ Void render_frame(const Model* m)
     for (S32 x = 0; x < MODEL_X; x++) {
       if (graph.map[y][x]) {
         const V2S c = { x, y };
-        draw_highlight(c, COLOR_GRAPH);
+        draw_highlight(camera, c, COLOR_GRAPH);
       }
     }
   }
@@ -278,7 +280,7 @@ Void render_frame(const Model* m)
 
   // draw the cursor highlight
   display_begin_draw(texture_white);
-  draw_highlight(cursor, COLOR_CURSOR);
+  draw_highlight(camera, cursor, COLOR_CURSOR);
   display_end_draw();
 
   // draw the text
@@ -296,14 +298,14 @@ Void render_frame(const Model* m)
         const Char letter = 'A' + (Char) literal - 10;
         const Char digit = '0' + (Char) literal;
         const Char literal_character = literal > 9 ? letter : digit;
-        draw_character(point, literal_character, COLOR_LITERAL);
+        draw_character(camera, point, literal_character, COLOR_LITERAL);
       } else if (tag_character != 0) {
         const U32 color = value.powered
           ? COLOR_POWERED
           : (value.pulse ? COLOR_PULSE : COLOR_UNPOWERED);
-        draw_character(point, tag_character, color);
+        draw_character(camera, point, tag_character, color);
       } else {
-        draw_character(point, EMPTY_CHARACTER, COLOR_EMPTY);
+        draw_character(camera, point, EMPTY_CHARACTER, COLOR_EMPTY);
       }
     }
   }

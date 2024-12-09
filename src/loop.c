@@ -44,6 +44,15 @@ static V2S window_resolution = {0};
 static Index render_index = 0;
 static Bool loop_exit = false;
 
+// measured in tiles from top left
+static V2F loop_camera = {0};
+
+// measured in pixels
+static V2S loop_mouse = {0};
+
+// flag for mouse drag interaction
+static Bool loop_drag = false;
+
 static Value value_table[0xFF] = {
   [ '!' ]       = { .tag = VALUE_BANG       },
   [ '+' ]       = { .tag = VALUE_ADD        },
@@ -334,7 +343,7 @@ ProgramStatus loop_video()
   }
 
   const Model* const m = &sim_history[render_index];
-  render_frame(m);
+  render_frame(m, loop_camera);
   return loop_exit ? PROGRAM_STATUS_SUCCESS : PROGRAM_STATUS_LIVE;
 }
 
@@ -353,6 +362,19 @@ Void loop_event(const Event* event)
 
     case VIEW_STATE_GRID:
       {
+
+        if (event->tag == EVENT_MOUSE) {
+          if (loop_drag) {
+            const V2F delta = v2f_of_v2s(v2s_sub(loop_mouse, event->movement));
+            const V2F tile = v2f_of_v2s(render_tile_size());
+            loop_camera = v2f_add(loop_camera, v2f_div(delta, tile));
+          }
+          loop_mouse = event->movement;
+        }
+
+        if (event->tag == EVENT_KEY && key->code == KEYCODE_MOUSE_LEFT) {
+          loop_drag = key->state == KEYSTATE_DOWN;
+        }
 
         if (event->tag == EVENT_KEY && key->state == KEYSTATE_DOWN) {
           switch (key->code) {

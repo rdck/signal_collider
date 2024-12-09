@@ -36,7 +36,7 @@ static V2S glyph_size = {0};
 
 static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_LITERAL       ] = 0,
-  [ VALUE_BANG          ] = '*',
+  [ VALUE_BANG          ] = '!',
   [ VALUE_ADD           ] = '+',
   [ VALUE_SUB           ] = '-',
   [ VALUE_MUL           ] = '*',

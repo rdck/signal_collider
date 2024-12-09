@@ -353,16 +353,9 @@ Void model_step(Model* m)
               const V2S px = v2s_add(origin, v2s_scale(west, 2)); // coordinate for X value
               const V2S py = v2s_add(origin, v2s_scale(west, 1)); // coordinate for Y value
               const S32 dx = read_literal(model_get(m, px), 0);
-              const S32 dy = read_literal(model_get(m, py), 0);
+              const S32 dy = read_literal(model_get(m, py), 0) + 1;
               const V2S dest = v2s_add(origin, v2s(dx, dy));
-
-              // We only generate a value when the relative coordinate is
-              // nonzero, so as not to overwrite the generator operator.
-              if (v2s_equal(dest, origin) == false) {
-                if (ve.tag != VALUE_NONE) {
-                  model_set(m, dest, ve);
-                }
-              }
+              model_set(m, dest, ve);
             } break;
 
           case VALUE_JUMP:
@@ -382,11 +375,9 @@ Void model_step(Model* m)
             {
               const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
               const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
-              const V2S source = v2s_sub(origin, v2s(dx, dy));
-              if (dx > 0 || dy > 0) {
-                const Value output = model_get(m, source);
-                model_set(m, ps, output);
-              }
+              const V2S source = v2s_sub(origin, v2s(dx + 1, dy));
+              const Value output = model_get(m, source);
+              model_set(m, ps, output);
             } break;
 
           case VALUE_NOTE:
@@ -524,10 +515,8 @@ Void model_graph(ModelGraph* graph, const Model* m)
             {
               const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
               const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
-              const V2S source = v2s_sub(origin, v2s(dx, dy));
-              if (dx > 0 || dy > 0) {
-                graph_set(graph, source, true);
-              }
+              const V2S source = v2s_sub(origin, v2s(dx + 1, dy));
+              graph_set(graph, source, true);
             } break;
         }
       }

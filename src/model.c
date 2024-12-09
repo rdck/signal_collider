@@ -29,6 +29,7 @@ const Value value_hop       = { .tag = VALUE_HOP };
 const Value value_interfere = { .tag = VALUE_INTERFERE };
 const Value value_jump      = { .tag = VALUE_JUMP };
 const Value value_load      = { .tag = VALUE_LOAD };
+const Value value_multiplex = { .tag = VALUE_MULTIPLEX };
 const Value value_note      = { .tag = VALUE_NOTE };
 const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_store     = { .tag = VALUE_STORE };
@@ -284,7 +285,6 @@ Void model_step(Model* m)
 
           case VALUE_INTERFERE:
             {
-
               const V2S uv = unit_vector(DIRECTION_WEST);
               const V2S px = v2s_add(origin, v2s_scale(uv, 2)); // coordinate for X value
               const V2S py = v2s_add(origin, v2s_scale(uv, 1)); // coordinate for Y value
@@ -311,6 +311,18 @@ Void model_step(Model* m)
               if (vw.tag == VALUE_LITERAL) {
                 const Value v = m->registers[vw.literal];
                 model_set(m, ps, v);
+              }
+            } break;
+
+          case VALUE_MULTIPLEX:
+            {
+              const V2S east = unit_vector(DIRECTION_EAST);
+              const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
+              const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
+              const V2S source = v2s_sub(origin, v2s(dx, dy));
+              if (dx > 0 || dy > 0) {
+                const Value output = model_get(m, source);
+                model_set(m, ps, output);
               }
             } break;
 

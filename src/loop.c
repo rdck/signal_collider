@@ -62,6 +62,7 @@ static Value value_table[0xFF] = {
   [ 'i' ]       = { .tag = VALUE_INTERFERE  },
   [ 'j' ]       = { .tag = VALUE_JUMP       },
   [ 'l' ]       = { .tag = VALUE_LOAD       },
+  [ 'm' ]       = { .tag = VALUE_MULTIPLEX  },
   [ 'n' ]       = { .tag = VALUE_NOTE       },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },
   [ 's' ]       = { .tag = VALUE_STORE      },

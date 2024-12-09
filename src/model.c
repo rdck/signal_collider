@@ -144,6 +144,9 @@ Void model_step(Model* m)
         values[d] = model_get(m, points[d]);
         bang = bang || values[d].tag == VALUE_BANG;
       }
+      
+      const V2S east = unit_vector(DIRECTION_EAST);
+      const V2S west = unit_vector(DIRECTION_WEST);
 
       // point abbreviations
       const V2S pn = points[DIRECTION_NORTH];
@@ -249,7 +252,6 @@ Void model_step(Model* m)
 
           case VALUE_ALTER:
             {
-              const V2S east = unit_vector(DIRECTION_EAST);
               const S32 lhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
               const S32 rhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
               const S32 t = read_literal(model_get(m, pw), 0);
@@ -285,9 +287,8 @@ Void model_step(Model* m)
 
           case VALUE_INTERFERE:
             {
-              const V2S uv = unit_vector(DIRECTION_WEST);
-              const V2S px = v2s_add(origin, v2s_scale(uv, 2)); // coordinate for X value
-              const V2S py = v2s_add(origin, v2s_scale(uv, 1)); // coordinate for Y value
+              const V2S px = v2s_add(origin, v2s_scale(west, 2)); // coordinate for X value
+              const V2S py = v2s_add(origin, v2s_scale(west, 1)); // coordinate for Y value
               const S32 dx = read_literal(model_get(m, px), 0);
               const S32 dy = read_literal(model_get(m, py), 0);
               const V2S dest = v2s_add(origin, v2s(dx, dy));
@@ -316,7 +317,6 @@ Void model_step(Model* m)
 
           case VALUE_MULTIPLEX:
             {
-              const V2S east = unit_vector(DIRECTION_EAST);
               const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
               const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
               const V2S source = v2s_sub(origin, v2s(dx, dy));

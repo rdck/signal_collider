@@ -60,7 +60,7 @@ static Value value_table[0xFF] = {
   [ 'h' ]       = { .tag = VALUE_HOP        },
   [ 'j' ]       = { .tag = VALUE_JUMP       },
   [ 'i' ]       = { .tag = VALUE_INTERFERE  },
-  [ 'n' ]       = { .tag = VALUE_SCALE      },
+  [ 'n' ]       = { .tag = VALUE_NOTE       },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },
   [ 'x' ]       = { .tag = VALUE_SAMPLER    },
   [ 'y' ]       = { .tag = VALUE_SYNTH      },

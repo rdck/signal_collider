@@ -28,7 +28,7 @@ const Value value_hop       = { .tag = VALUE_HOP };
 const Value value_jump      = { .tag = VALUE_JUMP };
 const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_interfere = { .tag = VALUE_INTERFERE };
-const Value value_scale     = { .tag = VALUE_SCALE };
+const Value value_note      = { .tag = VALUE_NOTE };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
 
@@ -302,7 +302,7 @@ Void model_step(Model* m)
               }
             } break;
 
-          case VALUE_SCALE:
+          case VALUE_NOTE:
             {
               const S32 index   = read_literal(ve, 0);
               const S32 octave  = index / SCALE_CARDINAL;

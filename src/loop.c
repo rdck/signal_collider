@@ -59,7 +59,7 @@ static Value value_table[0xFF] = {
   [ 'd' ]       = { .tag = VALUE_DELAY      },
   [ 'h' ]       = { .tag = VALUE_HOP        },
   [ 'j' ]       = { .tag = VALUE_JUMP       },
-  [ 'i' ]       = { .tag = VALUE_GENERATE   },
+  [ 'i' ]       = { .tag = VALUE_INTERFERE  },
   [ 'n' ]       = { .tag = VALUE_SCALE      },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },
   [ 'x' ]       = { .tag = VALUE_SAMPLER    },

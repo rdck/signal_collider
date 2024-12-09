@@ -27,7 +27,7 @@ const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_hop       = { .tag = VALUE_HOP };
 const Value value_jump      = { .tag = VALUE_JUMP };
 const Value value_random    = { .tag = VALUE_RANDOM };
-const Value value_generate  = { .tag = VALUE_GENERATE };
+const Value value_interfere = { .tag = VALUE_INTERFERE };
 const Value value_scale     = { .tag = VALUE_SCALE };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
@@ -283,7 +283,7 @@ Void model_step(Model* m)
               }
             } break;
 
-          case VALUE_GENERATE:
+          case VALUE_INTERFERE:
             {
 
               const V2S uv = unit_vector(DIRECTION_WEST);

@@ -55,7 +55,7 @@ typedef enum ValueTag {
   VALUE_HOP,
   VALUE_JUMP,
   VALUE_RANDOM,
-  VALUE_GENERATE,
+  VALUE_INTERFERE,
   VALUE_SCALE,
   VALUE_SYNTH,
   VALUE_SAMPLER,
@@ -100,7 +100,7 @@ extern const Value value_delay;
 extern const Value value_hop;
 extern const Value value_jump;
 extern const Value value_random;
-extern const Value value_generate;
+extern const Value value_interfere;
 extern const Value value_scale;
 extern const Value value_synth;
 extern const Value value_sampler;

@@ -365,11 +365,11 @@ Void loop_event(const Event* event)
 
         if (event->tag == EVENT_MOUSE) {
           if (loop_drag) {
-            const V2F delta = v2f_of_v2s(v2s_sub(loop_mouse, event->movement));
+            const V2F delta = v2f_of_v2s(v2s_sub(loop_mouse, event->mouse));
             const V2F tile = v2f_of_v2s(render_tile_size());
             loop_camera = v2f_add(loop_camera, v2f_div(delta, tile));
           }
-          loop_mouse = event->movement;
+          loop_mouse = event->mouse;
         }
 
         if (event->tag == EVENT_KEY && key->code == KEYCODE_MOUSE_LEFT) {

@@ -11,7 +11,7 @@ sndkit = vendor\sndkit
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I $platform\include -I $hmm -I $stb -I $gustavsson -I $dr_libs -I $sndkit
 debug = -Oi -Od
-define = -D PLATFORM_AUDIO
+define = -D PLATFORM_AUDIO -D DISPLAY_SPRITES=0x1000
 cflags = $warnings $includes $debug $define -MT -std:c17 -experimental:c11atomics
 win32_libs = user32.lib gdi32.lib opengl32.lib ole32.lib avrt.lib dbghelp.lib
 

@@ -15,8 +15,8 @@
 #include "rnd.h"
 
 // default grid size
-#define MODEL_X 32
-#define MODEL_Y 18
+#define MODEL_X 0x40
+#define MODEL_Y 0x40
 
 // the base of the numeral system
 #define MODEL_RADIX 36

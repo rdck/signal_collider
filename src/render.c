@@ -10,7 +10,7 @@
 #include "stb_image_write.h"
 #endif
 
-#define FONT_SIZE 48 // in pixels
+#define FONT_SIZE 28 // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -213,7 +213,11 @@ static Void draw_character(V2F camera, V2S point, Char c, U32 color)
   s.root.x = (F32) (relative.x * tile.x + delta.x / 2);
   s.root.y = (F32) (relative.y * tile.y + delta.y / 2);
   s.size = v2f_of_v2s(glyph_size);
-  display_draw_sprite_struct(s);
+  const Bool x = s.root.x + s.size.x >= 0.f && s.root.x < (F32) canvas_dimensions.x;
+  const Bool y = s.root.y + s.size.y >= 0.f && s.root.y < (F32) canvas_dimensions.y;
+  if (x && y) {
+    display_draw_sprite_struct(s);
+  }
 }
 
 static Void draw_console_character(V2S point, Char c, U32 color)
@@ -244,7 +248,11 @@ static Void draw_highlight(V2F camera, V2S point, U32 color)
   s.root.x = (F32) relative.x * tile.x;
   s.root.y = (F32) relative.y * tile.y;
   s.size = v2f_of_v2s(tile);
-  display_draw_sprite_struct(s);
+  const Bool x = s.root.x + s.size.x >= 0.f && s.root.x < (F32) canvas_dimensions.x;
+  const Bool y = s.root.y + s.size.y >= 0.f && s.root.y < (F32) canvas_dimensions.y;
+  if (x && y) {
+    display_draw_sprite_struct(s);
+  }
 }
 
 Void render_init(V2S dimensions)

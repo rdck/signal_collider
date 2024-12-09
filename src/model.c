@@ -391,7 +391,7 @@ Void model_step(Model* m)
 
           case VALUE_NOTE:
             {
-              const S32 index   = read_literal(ve, 0);
+              const S32 index   = read_literal(vw, 0);
               const S32 octave  = index / SCALE_CARDINAL;
               const S32 note    = index % SCALE_CARDINAL;
               const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;

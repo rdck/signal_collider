@@ -93,6 +93,13 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
+static Void graph_set(ModelGraph* graph, V2S c, Bool value)
+{
+  if (valid_point(c)) {
+    graph->map[c.y][c.x] = value;
+  }
+}
+
 Bool is_operator(Value value)
 {
   switch (value.tag) {
@@ -437,6 +444,95 @@ Void model_step(Model* m)
   }
 
   m->frame += 1;
+}
+
+// I would like if we could come up with a data structure that describes the
+// memory used by each operator, but without reflection this seems difficult.
+// Short of that, we have to keep this in sync with the logic in model_step.
+Void model_graph(ModelGraph* graph, const Model* m)
+{
+  // clear graph to zero
+  memset(graph, 0, sizeof(*graph));
+
+  for (S32 y = 0; y < MODEL_Y; y++) {
+    for (S32 x = 0; x < MODEL_X; x++) {
+
+      // the occupying value
+      const V2S origin = { x, y };
+      const Value value = model_get(m, origin);
+
+      // common vectors
+      const V2S north = unit_vector(DIRECTION_NORTH);
+      const V2S east  = unit_vector(DIRECTION_EAST);
+      const V2S west  = unit_vector(DIRECTION_WEST);
+
+      // check for adjacent bang
+      Bool bang = false;
+      for (Direction d = 0; d < DIRECTION_CARDINAL; d++) {
+        const Value v = model_get(m, v2s_add(origin, unit_vector(d)));
+        bang = bang || v.tag == VALUE_BANG;
+      }
+
+      if (value.powered || bang) {
+
+        switch (value.tag) {
+
+          case VALUE_ADD:
+          case VALUE_SUB:
+          case VALUE_MUL:
+          case VALUE_DIV:
+          case VALUE_EQUAL:
+          case VALUE_GREATER:
+          case VALUE_LESSER:
+          case VALUE_AND:
+          case VALUE_OR:
+          case VALUE_BOTTOM:
+          case VALUE_CLOCK:
+          case VALUE_DELAY:
+          case VALUE_STORE:
+          case VALUE_ODDMENT:
+          case VALUE_RANDOM:
+          case VALUE_TOP:
+            {
+              graph_set(graph, v2s_add(origin, v2s_scale(west, 1)), true);
+              graph_set(graph, v2s_add(origin, v2s_scale(east, 1)), true);
+            } break;
+          case VALUE_ALTER:
+            {
+              graph_set(graph, v2s_add(origin, v2s_scale(west, 1)), true);
+              graph_set(graph, v2s_add(origin, v2s_scale(east, 1)), true);
+              graph_set(graph, v2s_add(origin, v2s_scale(east, 2)), true);
+            } break;
+          case VALUE_HOP:
+          case VALUE_LOAD:
+          case VALUE_NOTE:
+          case VALUE_QUOTE:
+            {
+              graph_set(graph, v2s_add(origin, v2s_scale(west, 1)), true);
+            } break;
+          case VALUE_INTERFERE:
+            {
+              graph_set(graph, v2s_add(origin, v2s_scale(west, 1)), true);
+              graph_set(graph, v2s_add(origin, v2s_scale(west, 2)), true);
+              graph_set(graph, v2s_add(origin, v2s_scale(east, 1)), true);
+            } break;
+          case VALUE_JUMP:
+            {
+              graph_set(graph, v2s_add(origin, v2s_scale(north, 1)), true);
+            } break;
+          case VALUE_MULTIPLEX:
+            {
+              const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
+              const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
+              const V2S source = v2s_sub(origin, v2s(dx, dy));
+              if (dx > 0 || dy > 0) {
+                graph_set(graph, source, true);
+              }
+            } break;
+        }
+      }
+    }
+  }
 }
 
 #define RND_IMPLEMENTATION

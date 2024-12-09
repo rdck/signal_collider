@@ -83,7 +83,7 @@ typedef enum ValueTag {
 typedef struct Value {
   ValueTag tag;
   Bool powered;
-  Bool pulse; // true when activated by bang
+  Bool pulse; // flag for renderer
   S32 literal;
 } Value;
 
@@ -94,6 +94,10 @@ typedef struct Model {
   Value registers[MODEL_RADIX];           // register set
   Value map[MODEL_Y][MODEL_X];            // program memory
 } Model;
+
+typedef struct ModelGraph {
+  Bool map[MODEL_Y][MODEL_X];
+} ModelGraph;
 
 // state stored on disk
 typedef struct ModelStorage {
@@ -160,3 +164,6 @@ Value model_get(const Model* m, V2S point);
 // evaluator
 Void model_init(Model* m);
 Void model_step(Model* m);
+
+// compute a map of active memory
+Void model_graph(ModelGraph* graph, const Model* m);

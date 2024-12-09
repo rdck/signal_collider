@@ -24,7 +24,8 @@
 #define COLOR_PULSE       0xFF80FF80
 #define COLOR_UNPOWERED   0xFFA0A0A0
 #define COLOR_EMPTY       0x80FFFFFF
-#define COLOR_CURSOR      0x40FFFFFF
+#define COLOR_CURSOR      0x40FF8080
+#define COLOR_GRAPH       0x40FFFFFF
 #define COLOR_CONSOLE_BG  0xFF202020
 
 // @rdk: unify
@@ -256,8 +257,29 @@ Void render_init(V2S dimensions)
 
 Void render_frame(const Model* m)
 {
+  // compute map of active memory
+  ModelGraph graph;
+  model_graph(&graph, m);
+
   // mark the beginning of the frame
   display_begin_frame();
+
+  // draw the graph highlight
+  display_begin_draw(texture_white);
+  for (S32 y = 0; y < MODEL_Y; y++) {
+    for (S32 x = 0; x < MODEL_X; x++) {
+      if (graph.map[y][x]) {
+        const V2S c = { x, y };
+        draw_highlight(c, COLOR_GRAPH);
+      }
+    }
+  }
+  display_end_draw();
+
+  // draw the cursor highlight
+  display_begin_draw(texture_white);
+  draw_highlight(cursor, COLOR_CURSOR);
+  display_end_draw();
 
   // draw the text
   display_begin_draw(texture_font);
@@ -286,11 +308,6 @@ Void render_frame(const Model* m)
     }
   }
 
-  display_end_draw();
-
-  // draw the cursor highlight
-  display_begin_draw(texture_white);
-  draw_highlight(cursor, COLOR_CURSOR);
   display_end_draw();
 
   // draw the console, if active

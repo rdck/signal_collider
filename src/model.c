@@ -1,5 +1,5 @@
-#include "model.h"
 #include <string.h>
+#include "model.h"
 
 // @rdk: Should this be a shared definition?
 #define OCTAVE 12
@@ -23,6 +23,7 @@ const Value value_lesser    = { .tag = VALUE_LESSER };
 const Value value_and       = { .tag = VALUE_AND };
 const Value value_or        = { .tag = VALUE_OR };
 const Value value_alter     = { .tag = VALUE_ALTER };
+const Value value_bottom    = { .tag = VALUE_BOTTOM };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_hop       = { .tag = VALUE_HOP };
@@ -33,6 +34,7 @@ const Value value_multiplex = { .tag = VALUE_MULTIPLEX };
 const Value value_note      = { .tag = VALUE_NOTE };
 const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_store     = { .tag = VALUE_STORE };
+const Value value_top       = { .tag = VALUE_TOP };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
 
@@ -260,6 +262,13 @@ Void model_step(Model* m)
               model_set(m, ps, value_literal(output));
             } break;
 
+          case VALUE_BOTTOM:
+            {
+              const S32 lhs = read_literal(vw, 0);
+              const S32 rhs = read_literal(ve, 0);
+              model_set(m, ps, value_literal(MIN(lhs, rhs)));
+            } break;
+
           case VALUE_CLOCK:
             {
               const S32 rate = read_literal(vw, 0) + 1;
@@ -350,6 +359,13 @@ Void model_step(Model* m)
               if (vw.tag == VALUE_LITERAL) {
                 m->registers[vw.literal] = ve;
               }
+            } break;
+
+          case VALUE_TOP:
+            {
+              const S32 lhs = read_literal(vw, 0);
+              const S32 rhs = read_literal(ve, 0);
+              model_set(m, ps, value_literal(MAX(lhs, rhs)));
             } break;
         }
       }

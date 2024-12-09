@@ -47,6 +47,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_AND           ] = '&',
   [ VALUE_OR            ] = '|',
   [ VALUE_ALTER         ] = 'A',
+  [ VALUE_BOTTOM        ] = 'B',
   [ VALUE_CLOCK         ] = 'C',
   [ VALUE_DELAY         ] = 'D',
   [ VALUE_HOP           ] = 'H',
@@ -57,6 +58,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_NOTE          ] = 'N',
   [ VALUE_RANDOM        ] = 'R',
   [ VALUE_STORE         ] = 'S',
+  [ VALUE_TOP           ] = 'T',
   [ VALUE_SAMPLER       ] = 'X',
   [ VALUE_SYNTH         ] = 'Y',
 };

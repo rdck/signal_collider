@@ -51,6 +51,7 @@ typedef enum ValueTag {
   VALUE_AND,
   VALUE_OR,
   VALUE_ALTER,
+  VALUE_BOTTOM,
   VALUE_CLOCK,
   VALUE_DELAY,
   VALUE_HOP,
@@ -61,6 +62,7 @@ typedef enum ValueTag {
   VALUE_NOTE,
   VALUE_RANDOM,
   VALUE_STORE,
+  VALUE_TOP,
   VALUE_SAMPLER,
   VALUE_SYNTH,
   VALUE_CARDINAL,
@@ -102,6 +104,7 @@ extern const Value value_lesser;
 extern const Value value_and;
 extern const Value value_or;
 extern const Value value_alter;
+extern const Value value_bottom;
 extern const Value value_clock;
 extern const Value value_delay;
 extern const Value value_hop;
@@ -112,6 +115,7 @@ extern const Value value_multiplex;
 extern const Value value_note;
 extern const Value value_random;
 extern const Value value_store;
+extern const Value value_top;
 extern const Value value_sampler;
 extern const Value value_synth;
 

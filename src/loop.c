@@ -56,6 +56,7 @@ static Value value_table[0xFF] = {
   [ '&' ]       = { .tag = VALUE_AND        },
   [ '|' ]       = { .tag = VALUE_OR         },
   [ 'a' ]       = { .tag = VALUE_ALTER      },
+  [ 'b' ]       = { .tag = VALUE_BOTTOM     },
   [ 'c' ]       = { .tag = VALUE_CLOCK      },
   [ 'd' ]       = { .tag = VALUE_DELAY      },
   [ 'h' ]       = { .tag = VALUE_HOP        },
@@ -66,6 +67,7 @@ static Value value_table[0xFF] = {
   [ 'n' ]       = { .tag = VALUE_NOTE       },
   [ 'r' ]       = { .tag = VALUE_RANDOM     },
   [ 's' ]       = { .tag = VALUE_STORE      },
+  [ 't' ]       = { .tag = VALUE_TOP        },
   [ 'x' ]       = { .tag = VALUE_SAMPLER    },
   [ 'y' ]       = { .tag = VALUE_SYNTH      },
 };

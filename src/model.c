@@ -327,7 +327,7 @@ Void model_step(Model* m)
             {
               const S32 rate = read_literal(vw, 0) + 1;
               if (m->frame % rate == 0) {
-                const S32 mod = map_zero(ve, 8);
+                const S32 mod = read_literal(ve, MODEL_RADIX - 1) + 1;
                 const S32 output = (m->frame / rate) % mod;
                 model_set(m, ps, value_literal(output));
               }

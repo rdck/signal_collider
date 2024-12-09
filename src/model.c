@@ -162,11 +162,11 @@ S32 read_literal(Value v, S32 none)
 
 Void model_step(Model* m)
 {
-  // clear bangs
+  // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
-      const Value value = m->map[y][x];
-      if (value.tag == VALUE_BANG) {
+      m->map[y][x].pulse = false;
+      if (m->map[y][x].tag == VALUE_BANG) {
         m->map[y][x] = value_none;
       }
     }
@@ -187,6 +187,11 @@ Void model_step(Model* m)
         points[d] = add_unit_vector(origin, d);
         values[d] = model_get(m, points[d]);
         bang = bang || values[d].tag == VALUE_BANG;
+      }
+
+      // mark pulse
+      if (value.powered == false && bang) {
+        m->map[y][x].pulse = true;
       }
       
       const V2S east = unit_vector(DIRECTION_EAST);

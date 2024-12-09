@@ -83,6 +83,7 @@ typedef enum ValueTag {
 typedef struct Value {
   ValueTag tag;
   Bool powered;
+  Bool pulse; // true when activated by bang
   S32 literal;
 } Value;
 

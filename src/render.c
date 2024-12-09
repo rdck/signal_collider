@@ -46,6 +46,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_LESSER        ] = '<',
   [ VALUE_AND           ] = '&',
   [ VALUE_OR            ] = '|',
+  [ VALUE_ALTER         ] = 'A',
   [ VALUE_CLOCK         ] = 'C',
   [ VALUE_DELAY         ] = 'D',
   [ VALUE_HOP           ] = 'H',

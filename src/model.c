@@ -22,6 +22,7 @@ const Value value_greater   = { .tag = VALUE_GREATER };
 const Value value_lesser    = { .tag = VALUE_LESSER };
 const Value value_and       = { .tag = VALUE_AND };
 const Value value_or        = { .tag = VALUE_OR };
+const Value value_alter     = { .tag = VALUE_ALTER };
 const Value value_clock     = { .tag = VALUE_CLOCK };
 const Value value_delay     = { .tag = VALUE_DELAY };
 const Value value_hop       = { .tag = VALUE_HOP };
@@ -243,6 +244,17 @@ Void model_step(Model* m)
               } else if (ve.tag != VALUE_NONE || vw.tag != VALUE_NONE) {
                 model_set(m, ps, value_bang);
               }
+            } break;
+
+          case VALUE_ALTER:
+            {
+              const V2S east = unit_vector(DIRECTION_EAST);
+              const S32 lhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
+              const S32 rhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
+              const S32 t = read_literal(model_get(m, pw), 0);
+              const S32 scale = MODEL_RADIX - 1;
+              const S32 output = ((scale - t) * lhs + t * rhs) / scale;
+              model_set(m, ps, value_literal(output));
             } break;
 
           case VALUE_CLOCK:

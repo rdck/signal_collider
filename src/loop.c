@@ -55,6 +55,7 @@ static Value value_table[0xFF] = {
   [ '<' ]       = { .tag = VALUE_LESSER     },
   [ '&' ]       = { .tag = VALUE_AND        },
   [ '|' ]       = { .tag = VALUE_OR         },
+  [ 'a' ]       = { .tag = VALUE_ALTER      },
   [ 'c' ]       = { .tag = VALUE_CLOCK      },
   [ 'd' ]       = { .tag = VALUE_DELAY      },
   [ 'h' ]       = { .tag = VALUE_HOP        },

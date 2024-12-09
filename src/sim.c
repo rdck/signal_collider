@@ -199,6 +199,9 @@ static Void sim_step_model()
   Model* const m = &sim_history[sim_head];
   model_step(m);
 
+  // shorthand
+  const V2S west = unit_vector(DIRECTION_WEST);
+
   // process synth events
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
@@ -218,18 +221,17 @@ static Void sim_step_model()
 
       // process synth event
       if (value.tag == VALUE_SYNTH && bang) {
+
         const Index voice_index = pop_synth_voice();
         if (voice_index != INDEX_NONE) {
 
-          const V2S uv = unit_vector(DIRECTION_EAST);
-
           // parameter values
-          const S32 octave    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 1))), 0);
-          const S32 pitch     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 2))), 0);
-          const S32 velocity  = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 3))), 0);
-          const S32 attack    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
-          const S32 hold      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
-          const S32 release   = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
+          const S32 octave    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
+          const S32 pitch     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
+          const S32 velocity  = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
+          const S32 attack    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
+          const S32 hold      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
+          const S32 release   = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), 0);
 
           // curved values
           const F32 curved_attack =
@@ -259,19 +261,18 @@ static Void sim_step_model()
 
       // process sampler event
       if (value.tag == VALUE_SAMPLER && bang) {
+
         const Index voice_index = pop_sampler_voice();
         if (voice_index != INDEX_NONE) {
 
-          const V2S uv = unit_vector(DIRECTION_EAST);
-
           // parameter positions
-          const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 1))), INDEX_NONE);
-          const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 2))), 0);
-          const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 3))), 0);
-          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 4))), 0);
-          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 5))), 0);
-          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 6))), 0);
-          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(uv, 7))), 0);
+          const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 7))), INDEX_NONE);
+          const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
+          const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
+          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
+          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
+          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
+          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), 0);
 
           // curved values
           const F32 curved_attack =

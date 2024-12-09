@@ -54,18 +54,28 @@ typedef enum ValueTag {
   VALUE_BOTTOM,
   VALUE_CLOCK,
   VALUE_DELAY,
+  VALUE_E,
+  VALUE_F,
+  VALUE_G,
   VALUE_HOP,
   VALUE_INTERFERE,
   VALUE_JUMP,
+  VALUE_K,
   VALUE_LOAD,
   VALUE_MULTIPLEX,
   VALUE_NOTE,
   VALUE_ODDMENT,
+  VALUE_P,
+  VALUE_QUOTE,
   VALUE_RANDOM,
   VALUE_STORE,
   VALUE_TOP,
+  VALUE_U,
+  VALUE_V,
+  VALUE_W,
   VALUE_SAMPLER,
   VALUE_SYNTH,
+  VALUE_Z,
   VALUE_CARDINAL,
 } ValueTag;
 
@@ -115,6 +125,7 @@ extern const Value value_load;
 extern const Value value_multiplex;
 extern const Value value_note;
 extern const Value value_oddment;
+extern const Value value_quote;
 extern const Value value_random;
 extern const Value value_store;
 extern const Value value_top;

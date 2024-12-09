@@ -57,6 +57,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_MULTIPLEX     ] = 'M',
   [ VALUE_NOTE          ] = 'N',
   [ VALUE_ODDMENT       ] = 'O',
+  [ VALUE_QUOTE         ] = 'Q',
   [ VALUE_RANDOM        ] = 'R',
   [ VALUE_STORE         ] = 'S',
   [ VALUE_TOP           ] = 'T',

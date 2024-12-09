@@ -33,11 +33,52 @@ const Value value_load      = { .tag = VALUE_LOAD };
 const Value value_multiplex = { .tag = VALUE_MULTIPLEX };
 const Value value_note      = { .tag = VALUE_NOTE };
 const Value value_oddment   = { .tag = VALUE_ODDMENT };
+const Value value_quote     = { .tag = VALUE_QUOTE };
 const Value value_random    = { .tag = VALUE_RANDOM };
 const Value value_store     = { .tag = VALUE_STORE };
 const Value value_top       = { .tag = VALUE_TOP };
 const Value value_synth     = { .tag = VALUE_SYNTH };
 const Value value_sampler   = { .tag = VALUE_SAMPLER };
+
+// We disable quotation of operators that haven't been implemented yet.
+static const Bool quotation_table[VALUE_CARDINAL] = {
+  [ VALUE_BANG      ] = true,
+  [ VALUE_ADD       ] = true,
+  [ VALUE_SUB       ] = true,
+  [ VALUE_MUL       ] = true,
+  [ VALUE_DIV       ] = true,
+  [ VALUE_EQUAL     ] = true,
+  [ VALUE_GREATER   ] = true,
+  [ VALUE_LESSER    ] = true,
+  [ VALUE_AND       ] = true,
+  [ VALUE_OR        ] = true,
+  [ VALUE_ALTER     ] = true,
+  [ VALUE_BOTTOM    ] = true,
+  [ VALUE_CLOCK     ] = true,
+  [ VALUE_DELAY     ] = true,
+  [ VALUE_E         ] = false,
+  [ VALUE_F         ] = false,
+  [ VALUE_G         ] = false,
+  [ VALUE_HOP       ] = true,
+  [ VALUE_INTERFERE ] = true,
+  [ VALUE_JUMP      ] = true,
+  [ VALUE_K         ] = false,
+  [ VALUE_LOAD      ] = true,
+  [ VALUE_MULTIPLEX ] = true,
+  [ VALUE_NOTE      ] = true,
+  [ VALUE_ODDMENT   ] = true,
+  [ VALUE_P         ] = false,
+  [ VALUE_QUOTE     ] = true,
+  [ VALUE_RANDOM    ] = true,
+  [ VALUE_STORE     ] = true,
+  [ VALUE_TOP       ] = true,
+  [ VALUE_U         ] = false,
+  [ VALUE_V         ] = false,
+  [ VALUE_W         ] = false,
+  [ VALUE_SAMPLER   ] = true,
+  [ VALUE_SYNTH     ] = true,
+  [ VALUE_Z         ] = false,
+};
 
 // semitone intervals of the major scale
 #define SCALE_CARDINAL 7
@@ -351,6 +392,15 @@ Void model_step(Model* m)
               const S32 divisor = read_literal(ve, 0);
               const S32 residue = divisor == 0 ? 0 : dividend % divisor;
               model_set(m, ps, value_literal(residue));
+            } break;
+
+          case VALUE_QUOTE:
+            {
+              const S32 index = read_literal(vw, 0);
+              const Value output = { .tag = VALUE_BANG + index };
+              if (quotation_table[output.tag]) {
+                model_set(m, ps, output);
+              }
             } break;
 
           case VALUE_RANDOM:

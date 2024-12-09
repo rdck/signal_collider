@@ -53,12 +53,12 @@ typedef enum ValueTag {
   VALUE_CLOCK,
   VALUE_DELAY,
   VALUE_HOP,
-  VALUE_JUMP,
-  VALUE_RANDOM,
   VALUE_INTERFERE,
+  VALUE_JUMP,
   VALUE_NOTE,
-  VALUE_SYNTH,
+  VALUE_RANDOM,
   VALUE_SAMPLER,
+  VALUE_SYNTH,
   VALUE_CARDINAL,
 } ValueTag;
 
@@ -98,12 +98,12 @@ extern const Value value_or;
 extern const Value value_clock;
 extern const Value value_delay;
 extern const Value value_hop;
-extern const Value value_jump;
-extern const Value value_random;
 extern const Value value_interfere;
+extern const Value value_jump;
 extern const Value value_note;
-extern const Value value_synth;
+extern const Value value_random;
 extern const Value value_sampler;
+extern const Value value_synth;
 
 // operator predicate
 Bool is_operator(Value value);

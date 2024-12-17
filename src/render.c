@@ -65,6 +65,7 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_TOP           ] = 'T',
   [ VALUE_SAMPLER       ] = 'X',
   [ VALUE_SYNTH         ] = 'Y',
+  [ VALUE_MIDI          ] = 'Z',
 };
 
 V2S render_tile_size()

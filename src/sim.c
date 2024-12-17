@@ -6,6 +6,7 @@
 #include "config.h"
 #include "dr_wav.h"
 #include "log.h"
+#include "midi.h"
 #include "palette.h"
 
 // sndkit includes
@@ -304,6 +305,26 @@ static Void sim_step_model()
           }
         }
       }
+
+      // process sampler event
+      if (value.tag == VALUE_MIDI && bang) {
+
+        // parameter values
+        const S32 octave    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
+        const S32 pitch     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
+        const S32 velocity  = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
+        const S32 channel   = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
+        const S32 device    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), 0);
+
+        // curved values
+        const U32 semitones = OCTAVE * (U32) octave + (U32) pitch;
+        const U32 curved_velocity = 3 * (U32) velocity;
+
+        // send midi message
+        platform_midi_note_on(device, (U32) channel, semitones, curved_velocity);
+        platform_midi_note_off(device, (U32) channel, semitones, curved_velocity);
+
+      }
     }
   }
 }
@@ -558,6 +579,9 @@ Void sim_step(F32* audio_out, Index frames)
 
 Void sim_init()
 {
+  // initialize midi subsystem
+  platform_midi_init();
+
   // fill voice indices
   for (Index i = 0; i < SIM_VOICES; i++) {
     clear_synth_voice(i);

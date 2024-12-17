@@ -75,7 +75,7 @@ typedef enum ValueTag {
   VALUE_W,
   VALUE_SAMPLER,
   VALUE_SYNTH,
-  VALUE_Z,
+  VALUE_MIDI,
   VALUE_CARDINAL,
 } ValueTag;
 

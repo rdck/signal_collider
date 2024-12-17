@@ -77,7 +77,7 @@ static const Bool quotation_table[VALUE_CARDINAL] = {
   [ VALUE_W         ] = false,
   [ VALUE_SAMPLER   ] = true,
   [ VALUE_SYNTH     ] = true,
-  [ VALUE_Z         ] = false,
+  [ VALUE_MIDI      ] = true,
 };
 
 // semitone intervals of the major scale

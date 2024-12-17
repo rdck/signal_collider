@@ -81,6 +81,7 @@ static Value value_table[0xFF] = {
   [ 't' ]       = { .tag = VALUE_TOP        },
   [ 'x' ]       = { .tag = VALUE_SAMPLER    },
   [ 'y' ]       = { .tag = VALUE_SYNTH      },
+  [ 'z' ]       = { .tag = VALUE_MIDI       },
 };
 
 static S32 literal_of_char(Char c)

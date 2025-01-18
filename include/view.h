@@ -5,16 +5,13 @@
 #pragma once
 
 #include "prelude.h"
+#include "linear_algebra.h"
 
-#define CONSOLE_BUFFER 0x200
+typedef struct View {
 
-typedef enum ViewState {
-  VIEW_STATE_GRID,
-  VIEW_STATE_CONSOLE,
-  VIEW_STATE_CARDINAL,
-} ViewState;
+  V2S cursor;
 
-extern ViewState view_state;
-extern V2S cursor;
-extern Char console[CONSOLE_BUFFER];
-extern Index console_head;
+  // measured in tiles
+  V2F camera;
+
+} View;

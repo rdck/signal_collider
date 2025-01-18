@@ -1,3 +1,12 @@
-[submodule "vendor/platform"]
-	path = vendor/platform
-	url = ../platform.git
+[submodule "vendor/gustavsson"]
+	path = vendor/gustavsson
+	url = git@github.com:rdck/gustavsson.git
+[submodule "vendor/dr_libs"]
+	path = vendor/dr_libs
+	url = git@github.com:rdck/dr_libs.git
+[submodule "vendor/handmade_math"]
+	path = vendor/handmade_math
+	url = git@github.com:rdck/handmade_math.git
+[submodule "vendor/stb"]
+	path = vendor/stb
+	url = git@github.com:rdck/stb.git

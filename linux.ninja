@@ -1,0 +1,45 @@
+# paths
+sdl = ../SDL
+sndkit = vendor/sndkit
+gustavsson = vendor/gustavsson
+dr_libs = vendor/dr_libs
+stb = vendor/stb
+handmade_math = vendor/handmade_math
+
+# compiler flags
+warnings =
+includes = -I include -I $sdl/include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
+optimization =
+cflags = $warnings $includes $optimization -std=c17
+
+rule cc
+  deps = gcc
+  depfile = $out.d
+  command = cc $cflags -c $includes -MD -MF $out.d -o $out $in
+
+rule link
+  command = cc -o $out $in -L../SDL/build -lSDL3 -lm
+
+rule xxd
+  command = xxd -n $name -i $in $out
+
+build include/font.ttf.h: xxd font/Hack-Regular.ttf
+  name = font_hack
+
+build obj/message.obj     : cc src/message.c
+build obj/model.obj       : cc src/model.c
+build obj/sim.obj         : cc src/sim.c
+build obj/render.obj      : cc src/render.c | include/font.ttf.h
+build obj/narwhal.obj     : cc src/narwhal.c
+
+build obj/bigverb.obj     : cc $sndkit/bigverb.c
+build obj/env.obj         : cc $sndkit/env.c
+
+build build/narwhal.exe   : link $
+  obj/message.obj     $
+  obj/model.obj       $
+  obj/sim.obj         $
+  obj/render.obj      $
+  obj/narwhal.obj     $
+  obj/bigverb.obj     $
+  obj/env.obj

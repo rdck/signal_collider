@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "linear_algebra.h"
+#include "prelude.h"
 #include "rnd.h"
 
 // default grid size
@@ -95,10 +95,6 @@ typedef struct Model {
   Value map[MODEL_Y][MODEL_X];            // program memory
 } Model;
 
-typedef struct ModelGraph {
-  Bool map[MODEL_Y][MODEL_X];
-} ModelGraph;
-
 // state stored on disk
 typedef struct ModelStorage {
   Byte signature[MODEL_SIGNATURE_BYTES];  // file signature
@@ -164,6 +160,3 @@ Value model_get(const Model* m, V2S point);
 // evaluator
 Void model_init(Model* m);
 Void model_step(Model* m);
-
-// compute a map of active memory
-Void model_graph(ModelGraph* graph, const Model* m);

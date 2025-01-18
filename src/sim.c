@@ -1,15 +1,12 @@
-// system includes
 #include <math.h>
+#include <SDL3/SDL_log.h>
 
-// local includes
 #include "sim.h"
 #include "config.h"
 #include "dr_wav.h"
-#include "log.h"
-#include "midi.h"
 #include "palette.h"
+#include "comms.h"
 
-// sndkit includes
 #define SK_ENV_PRIV
 #include "env.h"
 #include "bigverb.h"
@@ -19,8 +16,6 @@
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
-#define STEREO 2
-#define OCTAVE 12
 
 #define SIM_PI                  3.141592653589793238f
 #define SIM_TWELFTH_ROOT_TWO    1.059463094359295264f
@@ -28,6 +23,11 @@
 
 #define REVERB_DEFAULT_SIZE 0.93f
 #define REVERB_DEFAULT_CUTOFF 10000.f
+
+// midi is not implemented yet
+#define platform_midi_init(...)
+#define platform_midi_note_on(...)
+#define platform_midi_note_off(...)
 
 typedef struct SynthVoice {
 
@@ -64,40 +64,20 @@ typedef struct SamplerVoice {
 
 } SamplerVoice;
 
-// context during sample load
-typedef struct LoadContext {
-  S32 loaded;
-} LoadContext;
-
 // extern data
 Model sim_history[SIM_HISTORY];
 
-// FIFO of generic messages from render thread to audio thread
-MessageQueue control_queue = {0};
-
-// FIFO of input messages from render thread to audio thread
-MessageQueue input_queue = {0};
-
-// FIFO of allocation messages from render thread to audio thread
-MessageQueue alloc_queue = {0};
-
-// FIFO of load messages from render thread to audio thread
-MessageQueue load_queue = {0};
-
-// FIFO of allocation messages from audio thread to render thread
-MessageQueue free_queue = {0};
-
 // history buffer
 Model sim_history[SIM_HISTORY] = {0};
-
-// default empty palette
-static Palette empty_palette = {0};
 
 // index into model history
 static Index sim_head = 0;
 
 // frames elapsed since startup
 static Index sim_frame = 0;
+
+// default empty palette
+static Palette empty_palette = {0};
 
 // palette data
 static Palette* sim_palette = &empty_palette;
@@ -416,117 +396,45 @@ static Void sim_partial_step(F32* audio_out, Index frames)
 
 Void sim_step(F32* audio_out, Index frames)
 {
-  // process the control queue
-  while (message_queue_length(&control_queue) > 0) {
-
-    // pull a message off the queue
-    Message message = {0};
-    message_dequeue(&control_queue, &message);
-
-    switch (message.tag) {
-      case MESSAGE_TEMPO:
-        {
-          sim_tempo = message.tempo;
-        } break;
-      case MESSAGE_PALETTE:
-        {
-          sim_palette = message.palette;
-        } break;
-      case MESSAGE_GLOBAL_VOLUME:
-        {
-          sim_global_volume = message.parameter;
-        } break;
-      case MESSAGE_ENVELOPE_COEFFICIENT:
-        {
-          sim_envelope_coefficient = message.parameter;
-        } break;
-      case MESSAGE_ENVELOPE_EXPONENT:
-        {
-          sim_envelope_exponent = message.parameter;
-        } break;
-      case MESSAGE_REVERB_STATUS:
-        {
-          sim_reverb_status = message.flag;
-        } break;
-      case MESSAGE_REVERB_SIZE:
-        {
-          sk_bigverb_size(sim_bigverb, message.parameter);
-        } break;
-      case MESSAGE_REVERB_CUTOFF:
-        {
-          sk_bigverb_cutoff(sim_bigverb, message.parameter);
-        } break;
-      case MESSAGE_REVERB_MIX:
-        {
-          sim_reverb_mix = message.parameter;
-        } break;
-    }
-
-  }
-
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
-  if (message_queue_length(&free_queue) > 0) {
+  if (ATOMIC_QUEUE_LENGTH(Index)(&free_queue) > 0) {
 
     // pull the next slot off the queue
-    Message free_message = {0};
-    message_dequeue(&free_queue, &free_message);
-
-    // validate the message
-    ASSERT(free_message.tag == MESSAGE_ALLOCATE);
-    ASSERT(free_message.alloc.index >= 0);
+    const Index sentinel = -1;
+    const Index slot = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
+    ASSERT(slot != sentinel);
 
     // copy model
-    const Index next_head = free_message.alloc.index;
-    memcpy(&sim_history[next_head], &sim_history[sim_head], sizeof(Model));
-    sim_head = next_head;
+    memcpy(&sim_history[slot], &sim_history[sim_head], sizeof(Model));
+    sim_head = slot;
 
     // the current model
     Model* const m = &sim_history[sim_head];
 
-    // process load messages
-    while (message_queue_length(&load_queue) > 0) {
-
-      // pull a message off the queue
-      Message message = {0};
-      message_dequeue(&load_queue, &message);
-
-      // validate the message
-      ASSERT(message.tag == MESSAGE_LOAD);
-      ASSERT(message.storage);
-
-      // copy the model
-      const ModelStorage* const storage = message.storage;
-      memcpy(&m->map, storage->map, sizeof(m->map));
-
-    }
-
     // process input messages
-    while (message_queue_length(&input_queue) > 0) {
+    while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
 
       // pull a message off the queue
-      Message message = {0};
-      message_dequeue(&input_queue, &message);
+      ControlMessage control_sentinel = {0};
+      const ControlMessage message = ATOMIC_QUEUE_DEQUEUE(ControlMessage)(&control_queue, control_sentinel);
+      ASSERT(message.tag != CONTROL_MESSAGE_NONE);
 
       // process the message
       switch (message.tag) {
 
-        case MESSAGE_WRITE:
+        case CONTROL_MESSAGE_WRITE:
           {
             model_set(m, message.write.point, message.write.value);
           } break;
-        case MESSAGE_POWER:
+        case CONTROL_MESSAGE_POWER:
           {
-            const V2S c = message.write.point;
+            const V2S c = message.power.point;
             Value* const value = &m->map[c.y][c.x];
             if (is_operator(*value)) {
               value->powered = ! value->powered;
             }
-          } break;
-        case MESSAGE_CLEAR:
-          {
-            memset(m->map, 0, sizeof(m->map));
           } break;
 
       }
@@ -567,12 +475,12 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // update shared pointer
-    const Message message = message_alloc(sim_head);
-    message_enqueue(&alloc_queue, message);
+    ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, sim_head);
 
   } else {
 
-    platform_log_error("no free history buffer");
+    // @rdk: look into SDL log metadata
+    SDL_Log("no free history buffer");
 
   }
 }

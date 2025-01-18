@@ -1,12 +1,21 @@
 /*******************************************************************************
- * render.h - renderer
+ * render.h
  ******************************************************************************/
 
 #pragma once
 
+#include <SDL3/SDL_render.h>
 #include "model.h"
+#include "view.h"
 
-Void render_init(V2S dimensions);
-Void render_frame(const Model* m, V2F camera);
+typedef struct RenderMetrics {
+  U64 frame_time;       // in microseconds
+  U64 frame_count;      // frames elapsed since startup
+  Index render_index;   // index into history buffer
+} RenderMetrics;
 
+Void render_init(SDL_Renderer* renderer);
+Void render_frame(const View* view, const Model* model, const RenderMetrics* metrics);
+
+// @rdk: This doesn't feel like it should be the job of the renderer.
 V2S render_tile_size();

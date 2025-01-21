@@ -1,0 +1,42 @@
+# paths
+sdl = \HOME\release\SDL3-3.1.8
+sndkit = vendor\sndkit
+gustavsson = vendor\gustavsson
+dr_libs = vendor\dr_libs
+stb = vendor\stb
+handmade_math = vendor\handmade_math
+
+# compiler flags
+warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
+includes = -I include -I $sdl\include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
+optimization = -Oi -Od
+cflags = $warnings $includes $optimization -std:c17 -experimental:c11atomics
+
+rule cc
+  deps = msvc
+  command = cl -nologo -Z7 $cflags -c -showIncludes $includes -Fo: $out $in
+
+rule link
+  command = cl -nologo -Z7 -Fe: $out $in -link -subsystem:WINDOWS
+
+rule xxd
+  command = xxd -n $name -i $in $out
+
+build obj\message.obj     : cc src\message.c
+build obj\model.obj       : cc src\model.c
+build obj\sim.obj         : cc src\sim.c
+build obj\render.obj      : cc src\render.c
+build obj\narwhal.obj     : cc src\narwhal.c
+
+build obj\bigverb.obj     : cc $sndkit\bigverb.c
+build obj\env.obj         : cc $sndkit\env.c
+
+build build\narwhal.exe   : link $
+  obj\message.obj     $
+  obj\model.obj       $
+  obj\sim.obj         $
+  obj\render.obj      $
+  obj\narwhal.obj     $
+  obj\bigverb.obj     $
+  obj\env.obj         $
+  $sdl\VisualC\x64\Debug\SDL3.lib

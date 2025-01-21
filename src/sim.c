@@ -1,15 +1,11 @@
-// system includes
 #include <math.h>
+#include <SDL3/SDL_log.h>
 
-// local includes
 #include "sim.h"
 #include "config.h"
 #include "dr_wav.h"
-#include "log.h"
-#include "midi.h"
 #include "palette.h"
 
-// sndkit includes
 #define SK_ENV_PRIV
 #include "env.h"
 #include "bigverb.h"
@@ -19,8 +15,6 @@
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
-#define STEREO 2
-#define OCTAVE 12
 
 #define SIM_PI                  3.141592653589793238f
 #define SIM_TWELFTH_ROOT_TWO    1.059463094359295264f
@@ -28,6 +22,11 @@
 
 #define REVERB_DEFAULT_SIZE 0.93f
 #define REVERB_DEFAULT_CUTOFF 10000.f
+
+// midi is not implemented yet
+#define platform_midi_init(...)
+#define platform_midi_note_on(...)
+#define platform_midi_note_off(...)
 
 typedef struct SynthVoice {
 
@@ -572,7 +571,8 @@ Void sim_step(F32* audio_out, Index frames)
 
   } else {
 
-    platform_log_error("no free history buffer");
+    // @rdk: look into SDL log metadata
+    SDL_Log("no free history buffer");
 
   }
 }

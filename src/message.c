@@ -1,6 +1,6 @@
 #include <stdatomic.h>
+#include <SDL3/SDL_log.h>
 #include "message.h"
-#include "log.h"
 
 Message message_write(V2S point, Value value)
 {
@@ -134,7 +134,7 @@ Void message_enqueue(MessageQueue* queue, Message message)
       swapped = atomic_compare_exchange_weak(&queue->length, &length, length + 1);
     }
   } else {
-    platform_log_warn("message queue is full");
+    SDL_Log("message queue is full");
   }
 }
 

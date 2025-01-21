@@ -11,7 +11,7 @@
 
 #pragma once
 
-#include "linear_algebra.h"
+#include "prelude.h"
 #include "rnd.h"
 
 // default grid size

@@ -51,8 +51,7 @@ typedef struct Allocate {
 } Allocate;
 
 // We don't really need this to be a tagged union. The queue should be
-// specialized to each type, eventually. This would also mean we don't need a
-// generic void pointer message.
+// specialized to each type, eventually.
 typedef struct Message {
   MessageTag tag;
   union {

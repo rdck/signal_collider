@@ -1,12 +1,12 @@
 /*******************************************************************************
- * render.h - renderer
+ * render.h
  ******************************************************************************/
 
 #pragma once
 
+#include <SDL3/SDL_render.h>
 #include "model.h"
+#include "view.h"
 
-Void render_init(V2S dimensions);
-Void render_frame(const Model* m, V2F camera);
-
-V2S render_tile_size();
+Void render_init(SDL_Renderer* renderer);
+Void render_frame(SDL_Renderer* renderer, const View* view, const Model* model);

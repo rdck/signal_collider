@@ -1,9 +1,6 @@
 #include <string.h>
 #include "model.h"
 
-// @rdk: Should this be a shared definition?
-#define OCTAVE 12
-
 static V2S unit_vector_table[DIRECTION_CARDINAL] = {
   [ DIRECTION_NORTH       ] = {  0, -1 },
   [ DIRECTION_EAST        ] = {  1,  0 },

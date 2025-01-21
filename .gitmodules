@@ -1,0 +1,3 @@
+[submodule "vendor/gustavsson"]
+	path = vendor/gustavsson
+	url = git@github.com:rdck/gustavsson.git

@@ -7,3 +7,6 @@
 [submodule "vendor/handmade_math"]
 	path = vendor/handmade_math
 	url = git@github.com:rdck/handmade_math.git
+[submodule "vendor/stb"]
+	path = vendor/stb
+	url = git@github.com:rdck/stb.git

@@ -4,3 +4,6 @@
 [submodule "vendor/dr_libs"]
 	path = vendor/dr_libs
 	url = git@github.com:rdck/dr_libs.git
+[submodule "vendor/handmade_math"]
+	path = vendor/handmade_math
+	url = git@github.com:rdck/handmade_math.git

@@ -9,4 +9,4 @@
 #include "view.h"
 
 Void render_init(SDL_Renderer* renderer);
-Void render_frame(SDL_Renderer* renderer, const View* view, const Model* model);
+Void render_frame(const View* view, const Model* model);

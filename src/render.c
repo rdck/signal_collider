@@ -4,7 +4,7 @@
 #include "font.ttf.h"
 #include "stb_truetype.h"
 
-#define FONT_SIZE 28 // in pixels
+#define FONT_SIZE 48 // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -13,8 +13,50 @@
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
 
+#define COLOR_LITERAL     0xFFFF8080
+#define COLOR_POWERED     0xFFFFFFFF
+#define COLOR_PULSE       0xFF80FF80
+#define COLOR_UNPOWERED   0xFFA0A0A0
+#define COLOR_EMPTY       0x80FFFFFF
+#define COLOR_CURSOR      0x40FF8080
+#define COLOR_GRAPH       0x40FFFFFF
+#define COLOR_CONSOLE_BG  0xFF202020
+
+static SDL_Renderer* renderer = NULL;
 static SDL_Texture* font_texture = NULL;
 static V2S glyph_size = {0};
+
+static Char representation_table[VALUE_CARDINAL] = {
+  [ VALUE_LITERAL       ] = 0,
+  [ VALUE_BANG          ] = '!',
+  [ VALUE_ADD           ] = '+',
+  [ VALUE_SUB           ] = '-',
+  [ VALUE_MUL           ] = '*',
+  [ VALUE_DIV           ] = '/',
+  [ VALUE_EQUAL         ] = '=',
+  [ VALUE_GREATER       ] = '>',
+  [ VALUE_LESSER        ] = '<',
+  [ VALUE_AND           ] = '&',
+  [ VALUE_OR            ] = '|',
+  [ VALUE_ALTER         ] = 'A',
+  [ VALUE_BOTTOM        ] = 'B',
+  [ VALUE_CLOCK         ] = 'C',
+  [ VALUE_DELAY         ] = 'D',
+  [ VALUE_HOP           ] = 'H',
+  [ VALUE_INTERFERE     ] = 'I',
+  [ VALUE_JUMP          ] = 'J',
+  [ VALUE_LOAD          ] = 'L',
+  [ VALUE_MULTIPLEX     ] = 'M',
+  [ VALUE_NOTE          ] = 'N',
+  [ VALUE_ODDMENT       ] = 'O',
+  [ VALUE_QUOTE         ] = 'Q',
+  [ VALUE_RANDOM        ] = 'R',
+  [ VALUE_STORE         ] = 'S',
+  [ VALUE_TOP           ] = 'T',
+  [ VALUE_SAMPLER       ] = 'X',
+  [ VALUE_SYNTH         ] = 'Y',
+  [ VALUE_MIDI          ] = 'Z',
+};
 
 static V2S font_coordinate(Char c)
 {
@@ -31,8 +73,20 @@ static Bool valid_atlas_point(V2S c, V2S d)
   return x && y;
 }
 
-Void render_init(SDL_Renderer* renderer)
+static V2S render_tile_size()
 {
+  const S32 tile = MAX(glyph_size.x, glyph_size.y);
+  return v2s(tile, tile);
+}
+
+Void render_init(SDL_Renderer* sdl_renderer)
+{
+  // store global renderer pointer
+  renderer = sdl_renderer;
+
+  const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  ASSERT(blend_status);
+
   stbtt_fontinfo font = {0};
   const S32 init_result = stbtt_InitFont(&font, font_hack, 0);
   ASSERT(init_result);
@@ -148,14 +202,80 @@ Void render_init(SDL_Renderer* renderer)
   SDL_free(atlas);
 }
 
-Void render_frame(SDL_Renderer* renderer, const View* view, const Model* model)
+static Void draw_character(V2F camera, V2S point, Char c, U32 color)
+{
+  const V2S p     = font_coordinate(c);
+  const V2S tile  = render_tile_size();
+  const V2S delta = v2s_sub(tile, glyph_size);
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
+
+  SDL_FRect source;
+  source.x = (F32) p.x * glyph_size.x;
+  source.y = (F32) p.y * glyph_size.y;
+  source.w = (F32) glyph_size.x;
+  source.h = (F32) glyph_size.y;
+  
+  SDL_FRect destination;
+  destination.x = (F32) point.x * tile.x + (delta.x / 2);
+  destination.y = (F32) point.y * tile.y + (delta.y / 2);
+  destination.w = (F32) glyph_size.x;
+  destination.h = (F32) glyph_size.y;
+
+  SDL_RenderTexture(renderer, font_texture, &source, &destination);
+}
+
+static Void draw_highlight(V2F camera, V2S point, U32 color)
+{
+  const V2S tile = render_tile_size();
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
+
+  SDL_FRect destination;
+  destination.x = (F32) point.x * tile.x;
+  destination.y = (F32) point.y * tile.y;
+  destination.w = (F32) tile.x;
+  destination.h = (F32) tile.y;
+
+  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);
+  SDL_RenderFillRect(renderer, &destination);
+}
+
+Void render_frame(const View* view, const Model* m)
 {
   // clear
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);
   SDL_RenderClear(renderer);
 
-  // draw font texture
-  SDL_RenderTexture(renderer, font_texture, NULL, NULL);
+  // @rdk: implement camera movement
+  V2F camera = {0};
+
+  // draw model
+  for (S32 y = 0; y < MODEL_Y; y++) {
+    for (S32 x = 0; x < MODEL_X; x++) {
+
+      const Value value = m->map[y][x];
+      const V2S point = { (S32) x, (S32) y };
+      const Char tag_character = representation_table[value.tag];
+
+      if (value.tag == VALUE_LITERAL) {
+        const S32 literal = m->map[y][x].literal;
+        const Char letter = 'A' + (Char) literal - 10;
+        const Char digit = '0' + (Char) literal;
+        const Char literal_character = literal > 9 ? letter : digit;
+        draw_character(camera, point, literal_character, COLOR_LITERAL);
+      } else if (tag_character != 0) {
+        const U32 color = value.powered
+          ? COLOR_POWERED
+          : (value.pulse ? COLOR_PULSE : COLOR_UNPOWERED);
+        draw_character(camera, point, tag_character, color);
+      } else {
+        draw_character(camera, point, EMPTY_CHARACTER, COLOR_EMPTY);
+      }
+
+    }
+  }
+
+  // draw cursor highlight
+  draw_highlight(camera, view->cursor, COLOR_CURSOR);
 
   // present
   SDL_RenderPresent(renderer);

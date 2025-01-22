@@ -22,6 +22,9 @@ rule link
 rule xxd
   command = xxd -n $name -i $in $out
 
+build include\font.ttf.h: xxd font\Hack-Regular.ttf
+  name = font_hack
+
 build obj\message.obj     : cc src\message.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c

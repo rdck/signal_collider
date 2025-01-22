@@ -216,26 +216,12 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
         update_cursor(DIRECTION_SOUTH);
         break;
 
-      // // literal input
-      // case SDLK_0: input_value(value_literal(0)); break;
-      // case SDLK_1: input_value(value_literal(1)); break;
-      // case SDLK_2: input_value(value_literal(2)); break;
-      // case SDLK_3: input_value(value_literal(3)); break;
-      // case SDLK_4: input_value(value_literal(4)); break;
-      // case SDLK_5: input_value(value_literal(5)); break;
-      // case SDLK_6: input_value(value_literal(6)); break;
-      // case SDLK_7: input_value(value_literal(7)); break;
-      // case SDLK_8: input_value(value_literal(8)); break;
-      // case SDLK_9: input_value(value_literal(9)); break;
-
-      // // value input
-      // case SDLK_C: input_value(value_clock); break;
-      // case SDLK_D: input_value(value_delay); break;
-      // case SDLK_M: input_value(value_multiplex); break;
-      // case SDLK_X: input_value(value_sampler); break;
-      // case SDLK_Y: input_value(value_synth); break;
-
-      case SDLK_SPACE: message_enqueue(&input_queue, message_power(view.cursor)); break;
+      case SDLK_SPACE:
+        message_enqueue(&input_queue, message_power(view.cursor));
+        break;
+      case SDLK_BACKSPACE:
+        input_value(value_none);
+        break;
 
     }
   }

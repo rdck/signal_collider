@@ -22,6 +22,41 @@
 #define COLOR_GRAPH       0x40FFFFFF
 #define COLOR_CONSOLE_BG  0xFF202020
 
+static const SDL_Color color_white = {
+  .r = 0xFF,
+  .g = 0xFF,
+  .b = 0xFF,
+  .a = 0xFF,
+};
+
+static const SDL_Color color_empty = {
+  .r = 0xFF,
+  .g = 0xFF,
+  .b = 0xFF,
+  .a = 0x80,
+};
+
+static SDL_Color color_literal = {
+  .r = 0x80,
+  .g = 0x80,
+  .b = 0xFF,
+  .a = 0xFF,
+};
+
+static SDL_Color color_pulse = {
+  .r = 0x80,
+  .g = 0xFF,
+  .b = 0x80,
+  .a = 0xFF,
+};
+
+static SDL_Color color_unpowered = {
+  .r = 0xA0,
+  .g = 0xA0,
+  .b = 0xA0,
+  .a = 0xFF,
+};
+
 static SDL_Renderer* renderer = NULL;
 static SDL_Texture* font_texture = NULL;
 static V2S glyph_size = {0};
@@ -174,7 +209,6 @@ Void render_init(SDL_Renderer* sdl_renderer)
       );
 #endif
 
-  // @rdk: We should make this a mono texture.
   Byte* const channels = SDL_malloc(COLOR_CHANNELS * ASCII_AREA * char_area);
   for (Index y = 0; y < graph.y; y++) {
     for (Index x = 0; x < graph.x; x++) {
@@ -202,7 +236,7 @@ Void render_init(SDL_Renderer* sdl_renderer)
   SDL_free(atlas);
 }
 
-static Void draw_character(V2F camera, V2S point, Char c, U32 color)
+static Void draw_character(V2F camera, V2S point, Char c, SDL_Color color)
 {
   const V2S p     = font_coordinate(c);
   const V2S tile  = render_tile_size();
@@ -221,6 +255,8 @@ static Void draw_character(V2F camera, V2S point, Char c, U32 color)
   destination.w = (F32) glyph_size.x;
   destination.h = (F32) glyph_size.y;
 
+  SDL_SetTextureColorMod(font_texture, color.r, color.g, color.b);
+  SDL_SetTextureAlphaMod(font_texture, color.a);
   SDL_RenderTexture(renderer, font_texture, &source, &destination);
 }
 
@@ -261,14 +297,14 @@ Void render_frame(const View* view, const Model* m)
         const Char letter = 'A' + (Char) literal - 10;
         const Char digit = '0' + (Char) literal;
         const Char literal_character = literal > 9 ? letter : digit;
-        draw_character(camera, point, literal_character, COLOR_LITERAL);
+        draw_character(camera, point, literal_character, color_literal);
       } else if (tag_character != 0) {
-        const U32 color = value.powered
-          ? COLOR_POWERED
-          : (value.pulse ? COLOR_PULSE : COLOR_UNPOWERED);
+        const SDL_Color color = value.powered
+          ? color_white
+          : (value.pulse ? color_pulse : color_unpowered);
         draw_character(camera, point, tag_character, color);
       } else {
-        draw_character(camera, point, EMPTY_CHARACTER, COLOR_EMPTY);
+        draw_character(camera, point, EMPTY_CHARACTER, color_empty);
       }
 
     }

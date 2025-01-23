@@ -18,7 +18,7 @@ rule cc
   command = cc $cflags -c $includes -MD -MF $out.d -o $out $in
 
 rule link
-  command = cc -o $out $in -L../SDL/build -lSDL3
+  command = cc -o $out $in -L../SDL/build -lSDL3 -lm
 
 rule xxd
   command = xxd -n $name -i $in $out

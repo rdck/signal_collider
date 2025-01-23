@@ -9,8 +9,9 @@
 
 #define WHAL_TITLE "Narwhal"
 
-#define RESX 320
-#define RESY 180
+// The window size will be a scalar multiple of this.
+#define ATOM_X 320
+#define ATOM_Y 180
 
 #define VALUE_TABLE_CARDINAL 0x100
 
@@ -19,6 +20,9 @@ static SDL_Renderer* renderer = NULL;
 static SDL_AudioStream* stream = NULL;
 static Index render_index = 0;
 static View view = {0};
+
+// flag for camera drag
+static Bool camera_drag = false;
 
 // half a second of audio should always be enough
 static F32 stream_buffer[Config_AUDIO_SAMPLE_RATE] = {0};
@@ -100,10 +104,12 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     return SDL_APP_FAILURE;
   }
 
+#ifdef REQUEST_GPU_DRIVER
   if (SDL_SetHint(SDL_HINT_RENDER_DRIVER, "gpu") == false) {
     SDL_Log("Failed to set render driver hint: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+#endif
 
   // get available display IDs
   S32 display_count = 0;
@@ -113,16 +119,24 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   SDL_Rect bounds = {0};
   SDL_GetDisplayUsableBounds(displays[0], &bounds);
 
-  // compute scale
+  // Compute the scale factor. We want to use the largest multiple of
+  // (ATOM_X, ATOM_Y) that will fit on the primary display.
   V2S scales = {0};
-  scales.x = bounds.w / RESX;
-  scales.y = bounds.h / RESY;
+  scales.x = bounds.w / ATOM_X;
+  scales.y = bounds.h / ATOM_Y;
   const S32 scale = MIN(scales.x, scales.y);
 
   // free display IDs
   SDL_free(displays);
 
-  if (SDL_CreateWindowAndRenderer(WHAL_TITLE, scale * RESX, scale * RESY, 0, &window, &renderer) == false) {
+  const Bool window_status = SDL_CreateWindowAndRenderer(
+      WHAL_TITLE,       // window title
+      scale * ATOM_X,   // width
+      scale * ATOM_Y,   // height
+      0,                // window flags
+      &window,          // window handle
+      &renderer);       // renderer handle
+  if (window_status == false) {
     SDL_Log("Failed to create renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
@@ -223,6 +237,24 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
         input_value(value_none);
         break;
 
+    }
+  }
+
+  if (camera_drag && event->type == SDL_EVENT_MOUSE_MOTION) {
+    const V2F relative = { event->motion.xrel, event->motion.yrel };
+    const V2F tile = v2f_of_v2s(render_tile_size());
+    view.camera = v2f_sub(view.camera, v2f_div(relative, tile));
+  }
+
+  if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
+    if (event->button.button == SDL_BUTTON_LEFT) {
+      camera_drag = true;
+    }
+  }
+
+  if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
+    if (camera_drag && event->button.button == SDL_BUTTON_LEFT) {
+      camera_drag = false;
     }
   }
 

@@ -13,13 +13,6 @@
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
 
-#define COLOR_LITERAL     0xFFFF8080
-#define COLOR_POWERED     0xFFFFFFFF
-#define COLOR_PULSE       0xFF80FF80
-#define COLOR_UNPOWERED   0xFFA0A0A0
-#define COLOR_EMPTY       0x80FFFFFF
-#define COLOR_CURSOR      0x40FF8080
-#define COLOR_GRAPH       0x40FFFFFF
 #define COLOR_CONSOLE_BG  0xFF202020
 
 static const SDL_Color color_white = {
@@ -55,6 +48,20 @@ static SDL_Color color_unpowered = {
   .g = 0xA0,
   .b = 0xA0,
   .a = 0xFF,
+};
+
+static SDL_Color color_cursor = {
+  .r = 0x80,
+  .g = 0x80,
+  .b = 0xFF,
+  .a = 0x40,
+};
+
+static SDL_Color color_graph = {
+  .r = 0xFF,
+  .g = 0xFF,
+  .b = 0xFF,
+  .a = 0x40,
 };
 
 static SDL_Renderer* renderer = NULL;
@@ -108,7 +115,7 @@ static Bool valid_atlas_point(V2S c, V2S d)
   return x && y;
 }
 
-static V2S render_tile_size()
+V2S render_tile_size()
 {
   const S32 tile = MAX(glyph_size.x, glyph_size.y);
   return v2s(tile, tile);
@@ -250,8 +257,8 @@ static Void draw_character(V2F camera, V2S point, Char c, SDL_Color color)
   source.h = (F32) glyph_size.y;
   
   SDL_FRect destination;
-  destination.x = (F32) point.x * tile.x + (delta.x / 2);
-  destination.y = (F32) point.y * tile.y + (delta.y / 2);
+  destination.x = relative.x * tile.x + (delta.x / 2);
+  destination.y = relative.y * tile.y + (delta.y / 2);
   destination.w = (F32) glyph_size.x;
   destination.h = (F32) glyph_size.y;
 
@@ -260,18 +267,18 @@ static Void draw_character(V2F camera, V2S point, Char c, SDL_Color color)
   SDL_RenderTexture(renderer, font_texture, &source, &destination);
 }
 
-static Void draw_highlight(V2F camera, V2S point, U32 color)
+static Void draw_highlight(V2F camera, V2S point, SDL_Color color)
 {
   const V2S tile = render_tile_size();
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
 
   SDL_FRect destination;
-  destination.x = (F32) point.x * tile.x;
-  destination.y = (F32) point.y * tile.y;
+  destination.x = relative.x * tile.x;
+  destination.y = relative.y * tile.y;
   destination.w = (F32) tile.x;
   destination.h = (F32) tile.y;
 
-  SDL_SetRenderDrawColor(renderer, 255, 255, 255, 50);
+  SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
   SDL_RenderFillRect(renderer, &destination);
 }
 
@@ -280,9 +287,6 @@ Void render_frame(const View* view, const Model* m)
   // clear
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);
   SDL_RenderClear(renderer);
-
-  // @rdk: implement camera movement
-  V2F camera = {0};
 
   // draw model
   for (S32 y = 0; y < MODEL_Y; y++) {
@@ -297,21 +301,21 @@ Void render_frame(const View* view, const Model* m)
         const Char letter = 'A' + (Char) literal - 10;
         const Char digit = '0' + (Char) literal;
         const Char literal_character = literal > 9 ? letter : digit;
-        draw_character(camera, point, literal_character, color_literal);
+        draw_character(view->camera, point, literal_character, color_literal);
       } else if (tag_character != 0) {
         const SDL_Color color = value.powered
           ? color_white
           : (value.pulse ? color_pulse : color_unpowered);
-        draw_character(camera, point, tag_character, color);
+        draw_character(view->camera, point, tag_character, color);
       } else {
-        draw_character(camera, point, EMPTY_CHARACTER, color_empty);
+        draw_character(view->camera, point, EMPTY_CHARACTER, color_empty);
       }
 
     }
   }
 
   // draw cursor highlight
-  draw_highlight(camera, view->cursor, COLOR_CURSOR);
+  draw_highlight(view->camera, view->cursor, color_cursor);
 
   // present
   SDL_RenderPresent(renderer);

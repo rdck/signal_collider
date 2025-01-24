@@ -28,7 +28,7 @@ build include\font.ttf.h: xxd font\Hack-Regular.ttf
 build obj\message.obj     : cc src\message.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c
-build obj\render.obj      : cc src\render.c
+build obj\render.obj      : cc src\render.c | include\font.ttf.h
 build obj\narwhal.obj     : cc src\narwhal.c
 
 build obj\bigverb.obj     : cc $sndkit\bigverb.c

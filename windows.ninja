@@ -34,7 +34,7 @@ build obj\narwhal.obj     : cc src\narwhal.c
 build obj\bigverb.obj     : cc $sndkit\bigverb.c
 build obj\env.obj         : cc $sndkit\env.c
 
-build build\narwhal.exe   : link $
+build build\narwhal.exe | build\narwhal.ilk build\narwhal.pdb : link $
   obj\message.obj     $
   obj\model.obj       $
   obj\sim.obj         $

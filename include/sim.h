@@ -6,7 +6,7 @@
 
 #include "message.h"
 
-#define SIM_HISTORY 0x80
+#define SIM_HISTORY 0x20
 
 extern Model sim_history[SIM_HISTORY];
 extern MessageQueue alloc_queue;

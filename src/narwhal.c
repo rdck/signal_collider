@@ -7,13 +7,11 @@
 #include "render.h"
 #include "config.h"
 
-#define WHAL_TITLE "Narwhal"
+#define WINDOW_TITLE "Narwhal"
 
 // The window size will be a scalar multiple of this.
 #define ATOM_X 320
 #define ATOM_Y 180
-
-#define VALUE_TABLE_CARDINAL 0x100
 
 static SDL_Window* window = NULL;
 static SDL_Renderer* renderer = NULL;
@@ -27,6 +25,7 @@ static Bool camera_drag = false;
 // half a second of audio should always be enough
 static F32 stream_buffer[Config_AUDIO_SAMPLE_RATE] = {0};
 
+#define VALUE_TABLE_CARDINAL 0x100
 static Value value_table[VALUE_TABLE_CARDINAL] = {
   [ '!' ]       = { .tag = VALUE_BANG       },
   [ '+' ]       = { .tag = VALUE_ADD        },
@@ -58,7 +57,7 @@ static Value value_table[VALUE_TABLE_CARDINAL] = {
   [ 'z' ]       = { .tag = VALUE_MIDI       },
 };
 
-static S32 literal_of_char(Char c)
+static S32 character_literal(Char c)
 {
   if (c >= '0' && c <= '9') {
     return c - '0';
@@ -97,7 +96,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   UNUSED_PARAMETER(argc);
   UNUSED_PARAMETER(argv);
 
-  SDL_SetAppMetadata(WHAL_TITLE, "0.1.0", "org.k-monk.narwhal");
+  SDL_SetAppMetadata(WINDOW_TITLE, "0.1.0", "org.k-monk.narwhal");
 
   if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) == false) {
     SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
@@ -130,7 +129,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   SDL_free(displays);
 
   const Bool window_status = SDL_CreateWindowAndRenderer(
-      WHAL_TITLE,       // window title
+      WINDOW_TITLE,     // window title
       scale * ATOM_X,   // width
       scale * ATOM_Y,   // height
       0,                // window flags
@@ -202,13 +201,18 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
   }
 
   if (event->type == SDL_EVENT_TEXT_INPUT) {
-    const Char c = event->text.text[0];
-    const S32 literal = literal_of_char(c);
-    const Value value = value_table[c];
-    if (value.tag != VALUE_NONE) {
-      input_value(value);
-    } else if (literal >= 0) {
-      input_value(value_literal(literal));
+    // Presumably there are cases where this string has length > 1, but I'm not
+    // sure what those cases are.
+    const Char* c = event->text.text;
+    while (*c) {
+      const S32 literal = character_literal(*c);
+      const Value value = value_table[*c];
+      if (value.tag != VALUE_NONE) {
+        input_value(value);
+      } else if (literal >= 0) {
+        input_value(value_literal(literal));
+      }
+      c += 1;
     }
   }
 
@@ -233,17 +237,12 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
       case SDLK_SPACE:
         message_enqueue(&input_queue, message_power(view.cursor));
         break;
+
       case SDLK_BACKSPACE:
         input_value(value_none);
         break;
 
     }
-  }
-
-  if (camera_drag && event->type == SDL_EVENT_MOUSE_MOTION) {
-    const V2F relative = { event->motion.xrel, event->motion.yrel };
-    const V2F tile = v2f_of_v2s(render_tile_size());
-    view.camera = v2f_sub(view.camera, v2f_div(relative, tile));
   }
 
   if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
@@ -256,6 +255,12 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
     if (camera_drag && event->button.button == SDL_BUTTON_LEFT) {
       camera_drag = false;
     }
+  }
+
+  if (camera_drag && event->type == SDL_EVENT_MOUSE_MOTION) {
+    const V2F relative = { event->motion.xrel, event->motion.yrel };
+    const V2F tile = v2f_of_v2s(render_tile_size());
+    view.camera = v2f_sub(view.camera, v2f_div(relative, tile));
   }
 
   return SDL_APP_CONTINUE;
@@ -281,12 +286,6 @@ SDL_AppResult SDL_AppIterate(Void* state)
 
   // render a frame
   render_frame(&view, m);
-
-#if 0
-  SDL_SetRenderDrawColorFloat(renderer, 0.f, 0.f, 0.f, SDL_ALPHA_OPAQUE_FLOAT);
-  SDL_RenderClear(renderer);
-  SDL_RenderPresent(renderer);
-#endif
 
   return SDL_APP_CONTINUE;
 }

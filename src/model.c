@@ -1,6 +1,8 @@
 #include <string.h>
 #include "model.h"
 
+_Static_assert(sizeof(MODEL_SIGNATURE) == MODEL_SIGNATURE_BYTES + 1);
+
 static V2S unit_vector_table[DIRECTION_CARDINAL] = {
   [ DIRECTION_NORTH       ] = {  0, -1 },
   [ DIRECTION_EAST        ] = {  1,  0 },

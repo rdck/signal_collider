@@ -79,8 +79,10 @@ https://www.vim.org/
 Then run `ninja` in the project root to compile.
 
 --------------------------------------------------------------------------------
-AUTHOR
+AUTHORS
 --------------------------------------------------------------------------------
 
 River Dillon
 river@k-monk.org
+
+Thanks to Paul Batchelor for work on the MacOS and Linux ports.

@@ -5,6 +5,7 @@
 #include "config.h"
 #include "dr_wav.h"
 #include "palette.h"
+#include "comms.h"
 
 #define SK_ENV_PRIV
 #include "env.h"
@@ -76,9 +77,6 @@ MessageQueue control_queue = {0};
 
 // FIFO of input messages from render thread to audio thread
 MessageQueue input_queue = {0};
-
-// FIFO of allocation messages from render thread to audio thread
-MessageQueue alloc_queue = {0};
 
 // FIFO of load messages from render thread to audio thread
 MessageQueue load_queue = {0};
@@ -566,8 +564,7 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // update shared pointer
-    const Message message = message_alloc(sim_head);
-    message_enqueue(&alloc_queue, message);
+    ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, sim_head);
 
   } else {
 

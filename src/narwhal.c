@@ -6,6 +6,7 @@
 #include "sim.h"
 #include "render.h"
 #include "config.h"
+#include "comms.h"
 
 #define WINDOW_TITLE "Narwhal"
 
@@ -18,6 +19,9 @@ static SDL_Renderer* renderer = NULL;
 static SDL_AudioStream* stream = NULL;
 static Index render_index = 0;
 static View view = {0};
+
+// queue buffers
+static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 
 // flag for camera drag
 static Bool camera_drag = false;
@@ -150,6 +154,8 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     return SDL_APP_FAILURE;
   }
 
+  ATOMIC_QUEUE_INIT(Index)(&allocation_queue, allocation_queue_buffer, MESSAGE_QUEUE_CAPACITY);
+
   sim_init();
   render_init(renderer);
 
@@ -157,8 +163,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   model_init(&sim_history[0]);
 
   // tell the render thread about the first slot
-  const Message zero_message = message_alloc(0);
-  message_enqueue(&alloc_queue, zero_message);
+  ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, 0);
 
   // tell the audio thread about the rest of the array
   for (Index i = 1; i < SIM_HISTORY; i++) {
@@ -271,14 +276,13 @@ SDL_AppResult SDL_AppIterate(Void* state)
   UNUSED_PARAMETER(state);
 
   // empty the allocation queue
-  while (message_queue_length(&alloc_queue) > 0) {
-    Message message = {0};
-    message_dequeue(&alloc_queue, &message);
-    ASSERT(message.tag == MESSAGE_ALLOCATE);
-    ASSERT(message.alloc.index >= 0);
+  while (ATOMIC_QUEUE_LENGTH(Index)(&allocation_queue) > 0) {
+    const Index sentinel = -1;
+    const Index allocation_message = ATOMIC_QUEUE_DEQUEUE(Index)(&allocation_queue, sentinel);
+    ASSERT(allocation_message != sentinel);
     const Message free_message = message_alloc(render_index);
     message_enqueue(&free_queue, free_message);
-    render_index = message.alloc.index;
+    render_index = allocation_message;
   }
 
   // get model pointer from index

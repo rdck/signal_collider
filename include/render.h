@@ -9,7 +9,8 @@
 #include "view.h"
 
 typedef struct RenderMetrics {
-  U64 total;
+  U64 frame_time;   // in microseconds
+  U64 frame_count;  // frames elapsed since startup
 } RenderMetrics;
 
 Void render_init(SDL_Renderer* renderer);

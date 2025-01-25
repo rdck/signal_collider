@@ -21,7 +21,7 @@ static Index render_index = 0;
 static View view = {0};
 
 static U64 frame_begin = 0;
-static U64 frame_end = 0;
+static U64 frame_count = 0;
 
 // queue buffers
 static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
@@ -146,6 +146,9 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     SDL_Log("Failed to create renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
+
+  const Char* render_driver = SDL_GetRenderDriver(0);
+  SDL_Log("render driver: %s", render_driver);
 
   if (SDL_SetRenderVSync(renderer, 1) == false) {
     SDL_Log("Failed to enable vsync: %s", SDL_GetError());
@@ -296,13 +299,14 @@ SDL_AppResult SDL_AppIterate(Void* state)
   const Model* const m = &sim_history[render_index];
 
   // render a frame
-  RenderMetrics metrics = {0};
-  metrics.total = (next_begin - frame_begin) * MEGA / frequency;
+  RenderMetrics metrics;
+  metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
+  metrics.frame_count = frame_count;
   render_frame(&view, m, &metrics);
-  SDL_Log("frame time: %03llu.%03llu", metrics.total / 1000, metrics.total % 1000);
 
   // update time
   frame_begin = next_begin;
+  frame_count += 1;
 
   return SDL_APP_CONTINUE;
 }

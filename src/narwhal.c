@@ -25,6 +25,7 @@ static U64 frame_count = 0;
 
 // queue buffers
 static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
+static Index free_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 
 // flag for camera drag
 static Bool camera_drag = false;
@@ -161,6 +162,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   }
 
   ATOMIC_QUEUE_INIT(Index)(&allocation_queue, allocation_queue_buffer, MESSAGE_QUEUE_CAPACITY);
+  ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
   render_init(renderer);
@@ -173,8 +175,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
   // tell the audio thread about the rest of the array
   for (Index i = 1; i < SIM_HISTORY; i++) {
-    const Message message = message_alloc(i);
-    message_enqueue(&free_queue, message);
+    ATOMIC_QUEUE_ENQUEUE(Index)(&free_queue, i);
   }
 
   // create audio stream
@@ -290,8 +291,7 @@ SDL_AppResult SDL_AppIterate(Void* state)
     const Index sentinel = -1;
     const Index allocation_message = ATOMIC_QUEUE_DEQUEUE(Index)(&allocation_queue, sentinel);
     ASSERT(allocation_message != sentinel);
-    const Message free_message = message_alloc(render_index);
-    message_enqueue(&free_queue, free_message);
+    ATOMIC_QUEUE_ENQUEUE(Index)(&free_queue, render_index);
     render_index = allocation_message;
   }
 

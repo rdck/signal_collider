@@ -81,9 +81,6 @@ MessageQueue input_queue = {0};
 // FIFO of load messages from render thread to audio thread
 MessageQueue load_queue = {0};
 
-// FIFO of allocation messages from audio thread to render thread
-MessageQueue free_queue = {0};
-
 // history buffer
 Model sim_history[SIM_HISTORY] = {0};
 
@@ -464,20 +461,16 @@ Void sim_step(F32* audio_out, Index frames)
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
-  if (message_queue_length(&free_queue) > 0) {
+  if (ATOMIC_QUEUE_LENGTH(Index)(&free_queue) > 0) {
 
     // pull the next slot off the queue
-    Message free_message = {0};
-    message_dequeue(&free_queue, &free_message);
-
-    // validate the message
-    ASSERT(free_message.tag == MESSAGE_ALLOCATE);
-    ASSERT(free_message.alloc.index >= 0);
+    const Index sentinel = -1;
+    const Index slot = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
+    ASSERT(slot != sentinel);
 
     // copy model
-    const Index next_head = free_message.alloc.index;
-    memcpy(&sim_history[next_head], &sim_history[sim_head], sizeof(Model));
-    sim_head = next_head;
+    memcpy(&sim_history[slot], &sim_history[sim_head], sizeof(Model));
+    sim_head = slot;
 
     // the current model
     Model* const m = &sim_history[sim_head];

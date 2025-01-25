@@ -4,8 +4,8 @@
 #include "font.ttf.h"
 #include "stb_truetype.h"
 
-#define WORLD_FONT_SIZE 48  // in pixels
-#define UI_FONT_SIZE 28     // in pixels
+#define WORLD_FONT_SIZE 40  // in pixels
+#define UI_FONT_SIZE 20     // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -16,7 +16,14 @@
 #define METRICS_BUFFER 0x100
 #define GRAPH_PANEL_WIDTH 480 // in pixels
 #define PADDING 8
+#define MARGIN (PADDING / 2)
+#define OPERATOR_DESCRIPTION_LINES 3
 #define COLOR_STRUCTURE(rv, gv, bv, av) { .r = rv, .g = gv, .b = bv, .a = av }
+
+typedef struct Font {
+  SDL_Texture* texture;   // handle to gpu texture
+  V2S glyph;              // size of a single glyph, in pixels
+} Font;
 
 static const SDL_Color color_white     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0xFF);
 static const SDL_Color color_empty     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x80);
@@ -25,12 +32,48 @@ static const SDL_Color color_pulse     = COLOR_STRUCTURE(0x80, 0xFF, 0x80, 0xFF)
 static const SDL_Color color_unpowered = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_cursor    = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0x40);
 static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF);
+static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 
-typedef struct Font {
-  SDL_Texture* texture;   // handle to gpu texture
-  V2S glyph;              // size of a single glyph, in pixels
-} Font;
+static const Char* name_table[VALUE_CARDINAL] = {
+  [ VALUE_LITERAL   ] = "literal",
+  [ VALUE_BANG      ] = "bang",
+  [ VALUE_ADD       ] = "add",
+  [ VALUE_SUB       ] = "subtract",
+  [ VALUE_MUL       ] = "multiply",
+  [ VALUE_DIV       ] = "divide",
+  [ VALUE_EQUAL     ] = "equality",
+  [ VALUE_GREATER   ] = "greater than",
+  [ VALUE_LESSER    ] = "less than",
+  [ VALUE_AND       ] = "and",
+  [ VALUE_OR        ] = "or",
+  [ VALUE_ALTER     ] = "alter",
+  [ VALUE_BOTTOM    ] = "bottom",
+  [ VALUE_CLOCK     ] = "clock",
+  [ VALUE_DELAY     ] = "delay",
+  [ VALUE_E         ] = "E",
+  [ VALUE_F         ] = "F",
+  [ VALUE_G         ] = "G",
+  [ VALUE_HOP       ] = "hop",
+  [ VALUE_INTERFERE ] = "interfere",
+  [ VALUE_JUMP      ] = "jump",
+  [ VALUE_K         ] = "K",
+  [ VALUE_LOAD      ] = "load",
+  [ VALUE_MULTIPLEX ] = "multiplex",
+  [ VALUE_NOTE      ] = "note",
+  [ VALUE_ODDMENT   ] = "oddment",
+  [ VALUE_P         ] = "P",
+  [ VALUE_QUOTE     ] = "quote",
+  [ VALUE_RANDOM    ] = "random",
+  [ VALUE_STORE     ] = "store",
+  [ VALUE_TOP       ] = "top",
+  [ VALUE_U         ] = "U",
+  [ VALUE_V         ] = "V",
+  [ VALUE_W         ] = "W",
+  [ VALUE_SAMPLER   ] = "sampler",
+  [ VALUE_SYNTH     ] = "synthesizer",
+  [ VALUE_MIDI      ] = "midi",
+};
 
 static SDL_Renderer* renderer = NULL;
 
@@ -365,18 +408,46 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   SDL_SetRenderDrawColorStruct(renderer, color_panel);
   const SDL_FRect graph_panel = {
     .x = (F32) graph_panel_left,
-    .y = 0,
+    .y = 0.f,
     .w = GRAPH_PANEL_WIDTH,
     .h = (F32) window.y,
   };
   SDL_RenderFillRect(renderer, &graph_panel);
+
+  // draw operator description panel
+  SDL_SetRenderDrawColorStruct(renderer, color_outline);
+  const SDL_FRect description_outline = {
+    .x = (F32) graph_panel_left,
+    .y = 0.f,
+    .w = (F32) GRAPH_PANEL_WIDTH,
+    .h = (F32) (OPERATOR_DESCRIPTION_LINES * ui_font.glyph.y + PADDING),
+  };
+  SDL_RenderFillRect(renderer, &description_outline);
+
+  // draw operator description panel
+  SDL_SetRenderDrawColorStruct(renderer, color_panel);
+  const SDL_FRect description_panel = {
+    .x = (F32) (graph_panel_left + MARGIN),
+    .y = (F32) MARGIN,
+    .w = (F32) (GRAPH_PANEL_WIDTH - PADDING),
+    .h = (F32) (OPERATOR_DESCRIPTION_LINES * ui_font.glyph.y),
+  };
+  SDL_RenderFillRect(renderer, &description_panel);
+
+  // draw operator description
+  const Value cursor_value = model_get(m, view->cursor);
+  if (cursor_value.tag != VALUE_NONE) {
+    const Char* const name = name_table[cursor_value.tag];
+    const V2F origin = { (F32) (graph_panel_left + PADDING), (F32) PADDING };
+    draw_text(&ui_font, color_white, origin, name);
+  }
 
   // draw inputs
   Index inputs = 0;
   for (Index i = 0; i < g->head; i++) {
     const GraphNode node = g->nodes[i];
     const F32 left = (F32) (graph_panel_left + PADDING);
-    const F32 top = (F32) PADDING;
+    const F32 top = (F32) (PADDING + ui_font.glyph.y);
     if (v2s_equal(node.point, view->cursor) && node.tag == GRAPH_NODE_INPUT) {
       const V2F origin = {
         left,

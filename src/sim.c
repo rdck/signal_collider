@@ -64,11 +64,8 @@ typedef struct SamplerVoice {
 
 } SamplerVoice;
 
-// extern data
-Model sim_history[SIM_HISTORY];
-
 // history buffer
-Model sim_history[SIM_HISTORY] = {0};
+ModelGraph sim_history[SIM_HISTORY] = {0};
 
 // index into model history
 static Index sim_head = 0;
@@ -177,8 +174,9 @@ static Void clear_sampler_voice(Index index)
 static Void sim_step_model()
 {
   // step model
-  Model* const m = &sim_history[sim_head];
-  model_step(m);
+  ModelGraph* const model_graph = &sim_history[sim_head];
+  Model* const m = &model_graph->model;
+  model_step(m, &model_graph->graph);
 
   // shorthand
   const V2S west = unit_vector(DIRECTION_WEST);
@@ -407,11 +405,11 @@ Void sim_step(F32* audio_out, Index frames)
     ASSERT(slot != sentinel);
 
     // copy model
-    memcpy(&sim_history[slot], &sim_history[sim_head], sizeof(Model));
+    memcpy(&sim_history[slot], &sim_history[sim_head], sizeof(sim_history[0]));
     sim_head = slot;
 
     // the current model
-    Model* const m = &sim_history[sim_head];
+    Model* const m = &sim_history[sim_head].model;
 
     // process input messages
     while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {

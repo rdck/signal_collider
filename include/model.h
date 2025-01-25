@@ -17,6 +17,7 @@
 // default grid size
 #define MODEL_X 0x40
 #define MODEL_Y 0x40
+#define GRAPH_NODES (MODEL_X * MODEL_Y * 4)
 
 // the base of the numeral system
 #define MODEL_RADIX 36
@@ -103,6 +104,29 @@ typedef struct ModelStorage {
   Value map[MODEL_Y][MODEL_X];            // program memory
 } ModelStorage;
 
+typedef enum GraphNodeTag {
+  GRAPH_NODE_NONE,
+  GRAPH_NODE_INPUT,
+  GRAPH_NODE_OUTPUT,
+  GRAPH_NODE_CARDINAL,
+} GraphNodeTag;
+
+typedef struct GraphNode {
+  GraphNodeTag tag;
+  V2S point;
+  const Char* attribute;
+} GraphNode;
+
+typedef struct Graph {
+  Index head;
+  GraphNode nodes[GRAPH_NODES];
+} Graph;
+
+typedef struct ModelGraph {
+  Model model;
+  Graph graph;
+} ModelGraph;
+
 // constant values
 extern const Value value_none;
 extern const Value value_bang;
@@ -159,4 +183,4 @@ Value model_get(const Model* m, V2S point);
 
 // evaluator
 Void model_init(Model* m);
-Void model_step(Model* m);
+Void model_step(Model* m, Graph* graph);

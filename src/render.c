@@ -298,8 +298,12 @@ static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
   SDL_RenderFillRect(renderer, &destination);
 }
 
-Void render_frame(const View* view, const Model* m, const RenderMetrics* metrics)
+Void render_frame(const View* view, const ModelGraph* model_graph, const RenderMetrics* metrics)
 {
+  // synonyms
+  const Model* const m = &model_graph->model;
+  const Graph* const g = &model_graph->graph;
+
   // clear
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);
   SDL_RenderClear(renderer);

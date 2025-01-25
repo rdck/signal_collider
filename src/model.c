@@ -159,7 +159,7 @@ S32 read_literal(Value v, S32 none)
   return v.tag == VALUE_LITERAL ? v.literal : none;
 }
 
-Void model_step(Model* m)
+Void model_step(Model* m, Graph* graph)
 {
   // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {

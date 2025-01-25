@@ -171,7 +171,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   render_init(renderer);
 
   // initialize the model
-  model_init(&sim_history[0]);
+  model_init(&sim_history[0].model);
 
   // tell the render thread about the first slot
   ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, 0);
@@ -300,14 +300,14 @@ SDL_AppResult SDL_AppIterate(Void* state)
   }
 
   // get model pointer from index
-  const Model* const m = &sim_history[render_index];
+  const ModelGraph* const model_graph = &sim_history[render_index];
 
   // render a frame
   RenderMetrics metrics;
   metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
   metrics.frame_count = frame_count;
   metrics.render_index = render_index;
-  render_frame(&view, m, &metrics);
+  render_frame(&view, model_graph, &metrics);
 
   // update time
   frame_begin = next_begin;

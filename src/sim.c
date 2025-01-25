@@ -64,31 +64,20 @@ typedef struct SamplerVoice {
 
 } SamplerVoice;
 
-// context during sample load
-typedef struct LoadContext {
-  S32 loaded;
-} LoadContext;
-
 // extern data
 Model sim_history[SIM_HISTORY];
 
-// FIFO of generic messages from render thread to audio thread
-MessageQueue control_queue = {0};
-
-// FIFO of input messages from render thread to audio thread
-MessageQueue input_queue = {0};
-
 // history buffer
 Model sim_history[SIM_HISTORY] = {0};
-
-// default empty palette
-static Palette empty_palette = {0};
 
 // index into model history
 static Index sim_head = 0;
 
 // frames elapsed since startup
 static Index sim_frame = 0;
+
+// default empty palette
+static Palette empty_palette = {0};
 
 // palette data
 static Palette* sim_palette = &empty_palette;
@@ -407,54 +396,6 @@ static Void sim_partial_step(F32* audio_out, Index frames)
 
 Void sim_step(F32* audio_out, Index frames)
 {
-  // process the control queue
-  while (message_queue_length(&control_queue) > 0) {
-
-    // pull a message off the queue
-    Message message = {0};
-    message_dequeue(&control_queue, &message);
-
-    switch (message.tag) {
-      case MESSAGE_TEMPO:
-        {
-          sim_tempo = message.tempo;
-        } break;
-      case MESSAGE_PALETTE:
-        {
-          sim_palette = message.palette;
-        } break;
-      case MESSAGE_GLOBAL_VOLUME:
-        {
-          sim_global_volume = message.parameter;
-        } break;
-      case MESSAGE_ENVELOPE_COEFFICIENT:
-        {
-          sim_envelope_coefficient = message.parameter;
-        } break;
-      case MESSAGE_ENVELOPE_EXPONENT:
-        {
-          sim_envelope_exponent = message.parameter;
-        } break;
-      case MESSAGE_REVERB_STATUS:
-        {
-          sim_reverb_status = message.flag;
-        } break;
-      case MESSAGE_REVERB_SIZE:
-        {
-          sk_bigverb_size(sim_bigverb, message.parameter);
-        } break;
-      case MESSAGE_REVERB_CUTOFF:
-        {
-          sk_bigverb_cutoff(sim_bigverb, message.parameter);
-        } break;
-      case MESSAGE_REVERB_MIX:
-        {
-          sim_reverb_mix = message.parameter;
-        } break;
-    }
-
-  }
-
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
@@ -473,30 +414,27 @@ Void sim_step(F32* audio_out, Index frames)
     Model* const m = &sim_history[sim_head];
 
     // process input messages
-    while (message_queue_length(&input_queue) > 0) {
+    while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
 
       // pull a message off the queue
-      Message message = {0};
-      message_dequeue(&input_queue, &message);
+      ControlMessage sentinel = {0};
+      const ControlMessage message = ATOMIC_QUEUE_DEQUEUE(ControlMessage)(&control_queue, sentinel);
+      ASSERT(message.tag != CONTROL_MESSAGE_NONE);
 
       // process the message
       switch (message.tag) {
 
-        case MESSAGE_WRITE:
+        case CONTROL_MESSAGE_WRITE:
           {
             model_set(m, message.write.point, message.write.value);
           } break;
-        case MESSAGE_POWER:
+        case CONTROL_MESSAGE_POWER:
           {
-            const V2S c = message.write.point;
+            const V2S c = message.power.point;
             Value* const value = &m->map[c.y][c.x];
             if (is_operator(*value)) {
               value->powered = ! value->powered;
             }
-          } break;
-        case MESSAGE_CLEAR:
-          {
-            memset(m->map, 0, sizeof(m->map));
           } break;
 
       }

@@ -26,7 +26,6 @@ build include\font.ttf.h: xxd font\Hack-Regular.ttf
   name = font_hack
 
 build obj\comms.obj       : cc src\comms.c
-build obj\message.obj     : cc src\message.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c
 build obj\render.obj      : cc src\render.c | include\font.ttf.h
@@ -37,7 +36,6 @@ build obj\env.obj         : cc $sndkit\env.c
 
 build build\narwhal.exe | build\narwhal.ilk build\narwhal.pdb : link $
   obj\comms.obj       $
-  obj\message.obj     $
   obj\model.obj       $
   obj\sim.obj         $
   obj\render.obj      $

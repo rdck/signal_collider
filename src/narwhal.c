@@ -27,6 +27,7 @@ static U64 frame_count = 0;
 // queue buffers
 static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 static Index free_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
+static ControlMessage control_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 
 // flag for camera drag
 static Bool camera_drag = false;
@@ -164,6 +165,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
   ATOMIC_QUEUE_INIT(Index)(&allocation_queue, allocation_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
+  ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
   render_init(renderer);
@@ -194,9 +196,10 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   return SDL_APP_CONTINUE;
 }
 
-static Void input_value(Value v)
+static Void input_value(Value value)
 {
-  message_enqueue(&input_queue, message_write(view.cursor, v));
+  const ControlMessage message = control_message_write(view.cursor, value);
+  ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, message);
 }
 
 SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
@@ -248,7 +251,7 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
         break;
 
       case SDLK_SPACE:
-        message_enqueue(&input_queue, message_power(view.cursor));
+        ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, control_message_power(view.cursor));
         break;
 
       case SDLK_BACKSPACE:

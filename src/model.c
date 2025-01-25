@@ -1,4 +1,5 @@
 #include <string.h>
+#include <SDL3/SDL_log.h>
 #include "model.h"
 
 _Static_assert(sizeof(MODEL_SIGNATURE) == MODEL_SIGNATURE_BYTES + 1);
@@ -92,6 +93,25 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
+static GraphNode graph_node(GraphNodeTag tag, V2S point, const Char* attribute)
+{
+  GraphNode node;
+  node.tag = tag;
+  node.point = point;
+  node.attribute = attribute;
+  return node;
+}
+
+static Void record_graph_node(Graph* graph, GraphNode node)
+{
+  if (graph->head < GRAPH_NODES) {
+    graph->nodes[graph->head] = node;
+    graph->head += 1;
+  } else {
+    SDL_Log("at graph capacity");
+  }
+}
+
 Bool is_operator(Value value)
 {
   switch (value.tag) {
@@ -161,6 +181,9 @@ S32 read_literal(Value v, S32 none)
 
 Void model_step(Model* m, Graph* graph)
 {
+  // clear graph
+  memset(graph, 0, sizeof(*graph));
+
   // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
@@ -226,6 +249,15 @@ Void model_step(Model* m, Graph* graph)
               const S32 r = read_literal(ve, 0);
               const S32 e = (l + r) % MODEL_RADIX;
               model_set(m, ps, value_literal(e));
+
+              const GraphNode ln = graph_node(GRAPH_NODE_INPUT, pw, "operand");
+              record_graph_node(graph, ln);
+
+              const GraphNode rn = graph_node(GRAPH_NODE_INPUT, pe, "operand");
+              record_graph_node(graph, rn);
+
+              const GraphNode output_node = graph_node(GRAPH_NODE_OUTPUT, ps, "addition");
+              record_graph_node(graph, output_node);
             } break;
 
           case VALUE_SUB:

@@ -133,7 +133,11 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   V2S scales = {0};
   scales.x = bounds.w / ATOM_X;
   scales.y = bounds.h / ATOM_Y;
+#ifdef TEN_EIGHTY
+  const S32 scale = 6;
+#else
   const S32 scale = MIN(scales.x, scales.y);
+#endif
 
   // free display IDs
   SDL_free(displays);

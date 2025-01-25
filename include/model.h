@@ -115,6 +115,7 @@ typedef struct GraphNode {
   GraphNodeTag tag;
   V2S point;
   const Char* attribute;
+  ValueTag target;
 } GraphNode;
 
 typedef struct Graph {

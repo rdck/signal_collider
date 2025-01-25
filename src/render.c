@@ -4,8 +4,8 @@
 #include "font.ttf.h"
 #include "stb_truetype.h"
 
-#define WORLD_FONT_SIZE 48 // in pixels
-#define UI_FONT_SIZE 28 // in pixels
+#define WORLD_FONT_SIZE 48  // in pixels
+#define UI_FONT_SIZE 28     // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -14,6 +14,8 @@
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
 #define METRICS_BUFFER 0x100
+#define GRAPH_PANEL_WIDTH 480 // in pixels
+#define PADDING 8
 #define COLOR_STRUCTURE(rv, gv, bv, av) { .r = rv, .g = gv, .b = bv, .a = av }
 
 static const SDL_Color color_white     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0xFF);
@@ -22,7 +24,8 @@ static const SDL_Color color_literal   = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0xFF)
 static const SDL_Color color_pulse     = COLOR_STRUCTURE(0x80, 0xFF, 0x80, 0xFF);
 static const SDL_Color color_unpowered = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_cursor    = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0x40);
-static const SDL_Color color_graph     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x40);
+static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF);
+static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 
 typedef struct Font {
   SDL_Texture* texture;   // handle to gpu texture
@@ -83,6 +86,11 @@ static Bool valid_atlas_point(V2S c, V2S d)
   const Bool x = c.x >= 0 && c.x < d.x;
   const Bool y = c.y >= 0 && c.y < d.y;
   return x && y;
+}
+
+static Void SDL_SetRenderDrawColorStruct(SDL_Renderer* r, SDL_Color color)
+{
+  SDL_SetRenderDrawColor(r, color.r, color.g, color.b, color.a);
 }
 
 static Font load_font(S32 font_size)
@@ -308,6 +316,22 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);
   SDL_RenderClear(renderer);
 
+  // get output resolution
+  V2S window = {0};
+  const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window.x, &window.y);
+  ASSERT(output_size_status);
+
+  // draw input highlights
+  for (Index i = 0; i < g->head; i++) {
+    const GraphNode node = g->nodes[i];
+    if (node.tag == GRAPH_NODE_INPUT) {
+      draw_world_highlight(view->camera, color_input, node.point);
+    }
+  }
+
+  // draw cursor highlight
+  draw_world_highlight(view->camera, color_cursor, view->cursor);
+
   // draw model
   for (S32 y = 0; y < MODEL_Y; y++) {
     for (S32 x = 0; x < MODEL_X; x++) {
@@ -334,6 +358,51 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     }
   }
 
+  // draw graph
+  const S32 graph_panel_left = window.x - GRAPH_PANEL_WIDTH;
+
+  // draw graph panel background
+  SDL_SetRenderDrawColorStruct(renderer, color_panel);
+  const SDL_FRect graph_panel = {
+    .x = (F32) graph_panel_left,
+    .y = 0,
+    .w = GRAPH_PANEL_WIDTH,
+    .h = (F32) window.y,
+  };
+  SDL_RenderFillRect(renderer, &graph_panel);
+
+  // draw inputs
+  Index inputs = 0;
+  for (Index i = 0; i < g->head; i++) {
+    const GraphNode node = g->nodes[i];
+    const F32 left = (F32) (graph_panel_left + PADDING);
+    const F32 top = (F32) PADDING;
+    if (v2s_equal(node.point, view->cursor) && node.tag == GRAPH_NODE_INPUT) {
+      const V2F origin = {
+        left,
+        top + (F32) (inputs * ui_font.glyph.y),
+      };
+      draw_text(&ui_font, color_white, origin, "INPUT NODE");
+      inputs += 1;
+    }
+  }
+
+  // draw outputs
+  Index outputs = 0;
+  for (Index i = 0; i < g->head; i++) {
+    const GraphNode node = g->nodes[i];
+    const F32 left = (F32) (graph_panel_left + PADDING);
+    const F32 top = (F32) (inputs * ui_font.glyph.y + PADDING);
+    if (v2s_equal(node.point, view->cursor) && node.tag == GRAPH_NODE_OUTPUT) {
+      const V2F origin = {
+        left,
+        top + (F32) (outputs * ui_font.glyph.y),
+      };
+      draw_text(&ui_font, color_white, origin, "OUTPUT NODE");
+      outputs += 1;
+    }
+  }
+
   // draw performance metrics
   Char metrics_buffer[METRICS_BUFFER] = {0};
   SDL_snprintf(
@@ -345,9 +414,6 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
       metrics->frame_count,
       metrics->render_index);
   draw_text(&ui_font, color_white, v2f(0.f, 0.f), metrics_buffer);
-
-  // draw cursor highlight
-  draw_world_highlight(view->camera, color_cursor, view->cursor);
 
   // present
   SDL_RenderPresent(renderer);

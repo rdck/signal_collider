@@ -12,57 +12,15 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
+#define COLOR_STRUCTURE(rv, gv, bv, av) { .r = rv, .g = gv, .b = bv, .a = av }
 
-#define COLOR_CONSOLE_BG  0xFF202020
-
-static const SDL_Color color_white = {
-  .r = 0xFF,
-  .g = 0xFF,
-  .b = 0xFF,
-  .a = 0xFF,
-};
-
-static const SDL_Color color_empty = {
-  .r = 0xFF,
-  .g = 0xFF,
-  .b = 0xFF,
-  .a = 0x80,
-};
-
-static SDL_Color color_literal = {
-  .r = 0x80,
-  .g = 0x80,
-  .b = 0xFF,
-  .a = 0xFF,
-};
-
-static SDL_Color color_pulse = {
-  .r = 0x80,
-  .g = 0xFF,
-  .b = 0x80,
-  .a = 0xFF,
-};
-
-static SDL_Color color_unpowered = {
-  .r = 0xA0,
-  .g = 0xA0,
-  .b = 0xA0,
-  .a = 0xFF,
-};
-
-static SDL_Color color_cursor = {
-  .r = 0x80,
-  .g = 0x80,
-  .b = 0xFF,
-  .a = 0x40,
-};
-
-static SDL_Color color_graph = {
-  .r = 0xFF,
-  .g = 0xFF,
-  .b = 0xFF,
-  .a = 0x40,
-};
+static const SDL_Color color_white     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0xFF);
+static const SDL_Color color_empty     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x80);
+static const SDL_Color color_literal   = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0xFF);
+static const SDL_Color color_pulse     = COLOR_STRUCTURE(0x80, 0xFF, 0x80, 0xFF);
+static const SDL_Color color_unpowered = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
+static const SDL_Color color_cursor    = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0x40);
+static const SDL_Color color_graph     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x40);
 
 static SDL_Renderer* renderer = NULL;
 static SDL_Texture* font_texture = NULL;

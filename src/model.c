@@ -93,21 +93,21 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
-static GraphNode graph_node(GraphNodeTag tag, V2S source, V2S destination, ValueTag cause, const Char* attribute)
+static GraphEdge graph_edge(GraphEdgeTag tag, V2S origin, V2S target, ValueTag cause, const Char* attribute)
 {
-  GraphNode node;
-  node.tag = tag;
-  node.source = source;
-  node.destination = destination;
-  node.cause = cause;
-  node.attribute = attribute;
-  return node;
+  GraphEdge edge;
+  edge.tag = tag;
+  edge.origin = origin;
+  edge.target = target;
+  edge.cause = cause;
+  edge.attribute = attribute;
+  return edge;
 }
 
-static Void record_graph_node(Graph* graph, GraphNode node)
+static Void record_graph_edge(Graph* graph, GraphEdge edge)
 {
-  if (graph->head < GRAPH_NODES) {
-    graph->nodes[graph->head] = node;
+  if (graph->head < GRAPH_EDGES) {
+    graph->edges[graph->head] = edge;
     graph->head += 1;
   } else {
     SDL_Log("at graph capacity");
@@ -116,29 +116,29 @@ static Void record_graph_node(Graph* graph, GraphNode node)
 
 static Value record_read(const Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute)
 {
-  const V2S source = v2s_add(origin, offset);
-  const Value input = model_get(m, source);
-  const GraphNode node = graph_node(
-      GRAPH_NODE_INPUT,
-      source,
+  const V2S target = v2s_add(origin, offset);
+  const Value input = model_get(m, target);
+  const GraphEdge edge = graph_edge(
+      GRAPH_EDGE_INPUT,
       origin,
+      target,
       cause,
       attribute);
-  record_graph_node(g, node);
+  record_graph_edge(g, edge);
   return input;
 }
 
 static Void record_write(Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute, Value v)
 {
-  const V2S destination = v2s_add(origin, offset);
-  model_set(m, destination, v);
-  const GraphNode node = graph_node(
-      GRAPH_NODE_OUTPUT,
+  const V2S target = v2s_add(origin, offset);
+  model_set(m, target, v);
+  const GraphEdge edge = graph_edge(
+      GRAPH_EDGE_OUTPUT,
       origin,
-      destination,
+      target,
       cause,
       attribute);
-  record_graph_node(g, node);
+  record_graph_edge(g, edge);
 }
 
 Bool is_operator(Value value)

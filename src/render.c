@@ -366,9 +366,9 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
 
   // draw input highlights
   for (Index i = 0; i < g->head; i++) {
-    const GraphNode node = g->nodes[i];
-    if (node.tag == GRAPH_NODE_INPUT) {
-      draw_world_highlight(view->camera, color_input, node.source);
+    const GraphEdge edge = g->edges[i];
+    if (edge.tag == GRAPH_EDGE_INPUT) {
+      draw_world_highlight(view->camera, color_input, edge.target);
     }
   }
 
@@ -445,10 +445,10 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   // draw inputs
   Index inputs = 0;
   for (Index i = 0; i < g->head; i++) {
-    const GraphNode node = g->nodes[i];
+    const GraphEdge edge = g->edges[i];
     const F32 left = (F32) (graph_panel_left + PADDING);
     const F32 top = (F32) (PADDING + ui_font.glyph.y);
-    if (node.tag == GRAPH_NODE_INPUT && v2s_equal(node.source, view->cursor)) {
+    if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.target, view->cursor)) {
       const V2F origin = {
         left,
         top + (F32) (inputs * ui_font.glyph.y),
@@ -461,10 +461,10 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   // draw outputs
   Index outputs = 0;
   for (Index i = 0; i < g->head; i++) {
-    const GraphNode node = g->nodes[i];
+    const GraphEdge edge = g->edges[i];
     const F32 left = (F32) (graph_panel_left + PADDING);
     const F32 top = (F32) (inputs * ui_font.glyph.y + PADDING);
-    if (node.tag == GRAPH_NODE_OUTPUT && v2s_equal(node.destination, view->cursor)) {
+    if (edge.tag == GRAPH_EDGE_OUTPUT && v2s_equal(edge.target, view->cursor)) {
       const V2F origin = {
         left,
         top + (F32) (outputs * ui_font.glyph.y),

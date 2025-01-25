@@ -5,6 +5,7 @@
 #include "stb_truetype.h"
 
 #define FONT_SIZE 48 // in pixels
+#define UI_FONT_SIZE 24 // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -73,25 +74,13 @@ static Bool valid_atlas_point(V2S c, V2S d)
   return x && y;
 }
 
-V2S render_tile_size()
+static SDL_Texture* load_font(S32 font_size)
 {
-  const S32 tile = MAX(glyph_size.x, glyph_size.y);
-  return v2s(tile, tile);
-}
-
-Void render_init(SDL_Renderer* sdl_renderer)
-{
-  // store global renderer pointer
-  renderer = sdl_renderer;
-
-  const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-  ASSERT(blend_status);
-
   stbtt_fontinfo font = {0};
   const S32 init_result = stbtt_InitFont(&font, font_hack, 0);
   ASSERT(init_result);
 
-  const F32 scale = stbtt_ScaleForPixelHeight(&font, FONT_SIZE);
+  const F32 scale = stbtt_ScaleForPixelHeight(&font, (F32) font_size);
 
   // vertical metrics
   S32 ascent = 0;
@@ -107,7 +96,7 @@ Void render_init(SDL_Renderer* sdl_renderer)
   const S32 advance = (S32) (scale * raw_advance) + 1;
 
   // dimensions
-  glyph_size = v2s(advance, FONT_SIZE);
+  glyph_size = v2s(advance, font_size);
   const S32 char_area = glyph_size.x * glyph_size.y;
   const V2S graph = v2s_mul(v2s(ASCII_X, ASCII_Y), glyph_size);
 
@@ -193,12 +182,30 @@ Void render_init(SDL_Renderer* sdl_renderer)
       COLOR_CHANNELS * ASCII_X * glyph_size.x // pitch
       );
 
-  font_texture = SDL_CreateTextureFromSurface(renderer, surface);
-  ASSERT(font_texture);
+  SDL_Texture* const texture = SDL_CreateTextureFromSurface(renderer, surface);
+  ASSERT(texture);
 
   SDL_DestroySurface(surface);
   SDL_free(channels);
   SDL_free(atlas);
+  return texture;
+}
+
+V2S render_tile_size()
+{
+  const S32 tile = MAX(glyph_size.x, glyph_size.y);
+  return v2s(tile, tile);
+}
+
+Void render_init(SDL_Renderer* sdl_renderer)
+{
+  // store global renderer pointer
+  renderer = sdl_renderer;
+
+  const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  ASSERT(blend_status);
+
+  font_texture = load_font(FONT_SIZE);
 }
 
 static Void draw_character(V2F camera, V2S point, Char c, SDL_Color color)
@@ -240,7 +247,7 @@ static Void draw_highlight(V2F camera, V2S point, SDL_Color color)
   SDL_RenderFillRect(renderer, &destination);
 }
 
-Void render_frame(const View* view, const Model* m)
+Void render_frame(const View* view, const Model* m, const RenderMetrics* metrics)
 {
   // clear
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);

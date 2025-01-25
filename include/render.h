@@ -8,8 +8,12 @@
 #include "model.h"
 #include "view.h"
 
+typedef struct RenderMetrics {
+  U64 total;
+} RenderMetrics;
+
 Void render_init(SDL_Renderer* renderer);
-Void render_frame(const View* view, const Model* model);
+Void render_frame(const View* view, const Model* model, const RenderMetrics* metrics);
 
 // @rdk: This doesn't feel like it should be the job of the renderer.
 V2S render_tile_size();

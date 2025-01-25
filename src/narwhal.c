@@ -20,6 +20,9 @@ static SDL_AudioStream* stream = NULL;
 static Index render_index = 0;
 static View view = {0};
 
+static U64 frame_begin = 0;
+static U64 frame_end = 0;
+
 // queue buffers
 static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 
@@ -275,6 +278,10 @@ SDL_AppResult SDL_AppIterate(Void* state)
 {
   UNUSED_PARAMETER(state);
 
+  // measure time
+  const U64 next_begin = SDL_GetPerformanceCounter();
+  const U64 frequency = SDL_GetPerformanceFrequency();
+
   // empty the allocation queue
   while (ATOMIC_QUEUE_LENGTH(Index)(&allocation_queue) > 0) {
     const Index sentinel = -1;
@@ -289,7 +296,13 @@ SDL_AppResult SDL_AppIterate(Void* state)
   const Model* const m = &sim_history[render_index];
 
   // render a frame
-  render_frame(&view, m);
+  RenderMetrics metrics = {0};
+  metrics.total = (next_begin - frame_begin) * MEGA / frequency;
+  render_frame(&view, m, &metrics);
+  SDL_Log("frame time: %03llu.%03llu", metrics.total / 1000, metrics.total % 1000);
+
+  // update time
+  frame_begin = next_begin;
 
   return SDL_APP_CONTINUE;
 }

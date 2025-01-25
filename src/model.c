@@ -93,11 +93,13 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
-static GraphNode graph_node(GraphNodeTag tag, V2S point, const Char* attribute)
+static GraphNode graph_node(GraphNodeTag tag, V2S source, V2S destination, ValueTag cause, const Char* attribute)
 {
   GraphNode node;
   node.tag = tag;
-  node.point = point;
+  node.source = source;
+  node.destination = destination;
+  node.cause = cause;
   node.attribute = attribute;
   return node;
 }
@@ -110,6 +112,33 @@ static Void record_graph_node(Graph* graph, GraphNode node)
   } else {
     SDL_Log("at graph capacity");
   }
+}
+
+static Value record_read(const Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute)
+{
+  const V2S source = v2s_add(origin, offset);
+  const Value input = model_get(m, source);
+  const GraphNode node = graph_node(
+      GRAPH_NODE_INPUT,
+      source,
+      origin,
+      cause,
+      attribute);
+  record_graph_node(g, node);
+  return input;
+}
+
+static Void record_write(Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute, Value v)
+{
+  const V2S destination = v2s_add(origin, offset);
+  model_set(m, destination, v);
+  const GraphNode node = graph_node(
+      GRAPH_NODE_OUTPUT,
+      origin,
+      destination,
+      cause,
+      attribute);
+  record_graph_node(g, node);
 }
 
 Bool is_operator(Value value)
@@ -159,11 +188,10 @@ Void model_init(Model* m)
 
 Value model_get(const Model* m, V2S point)
 {
-  const Value none = {0};
   if (valid_point(point)) {
     return m->map[point.y][point.x];
   } else {
-    return none;
+    return value_none;
   }
 }
 
@@ -179,10 +207,10 @@ S32 read_literal(Value v, S32 none)
   return v.tag == VALUE_LITERAL ? v.literal : none;
 }
 
-Void model_step(Model* m, Graph* graph)
+Void model_step(Model* m, Graph* g)
 {
   // clear graph
-  memset(graph, 0, sizeof(*graph));
+  memset(g, 0, sizeof(*g));
 
   // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {
@@ -245,19 +273,10 @@ Void model_step(Model* m, Graph* graph)
 
           case VALUE_ADD:
             {
-              const S32 l = read_literal(vw, 0);
-              const S32 r = read_literal(ve, 0);
-              const S32 e = (l + r) % MODEL_RADIX;
-              model_set(m, ps, value_literal(e));
-
-              const GraphNode ln = graph_node(GRAPH_NODE_INPUT, pw, "operand");
-              record_graph_node(graph, ln);
-
-              const GraphNode rn = graph_node(GRAPH_NODE_INPUT, pe, "operand");
-              record_graph_node(graph, rn);
-
-              const GraphNode output_node = graph_node(GRAPH_NODE_OUTPUT, ps, "addition");
-              record_graph_node(graph, output_node);
+              const Value augend = record_read(m, g, origin, v2s(-1, 0), value.tag, "ADDEND");
+              const Value addend = record_read(m, g, origin, v2s( 1, 0), value.tag, "ADDEND");
+              const S32 output = (read_literal(augend, 0) + read_literal(addend, 0)) % MODEL_RADIX;
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(output));
             } break;
 
           case VALUE_SUB:

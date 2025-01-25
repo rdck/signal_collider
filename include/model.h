@@ -113,9 +113,10 @@ typedef enum GraphNodeTag {
 
 typedef struct GraphNode {
   GraphNodeTag tag;
-  V2S point;
+  V2S source;
+  V2S destination;
+  ValueTag cause;
   const Char* attribute;
-  ValueTag target;
 } GraphNode;
 
 typedef struct Graph {

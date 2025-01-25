@@ -36,43 +36,43 @@ static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF)
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 
 static const Char* name_table[VALUE_CARDINAL] = {
-  [ VALUE_LITERAL   ] = "literal",
-  [ VALUE_BANG      ] = "bang",
-  [ VALUE_ADD       ] = "add",
-  [ VALUE_SUB       ] = "subtract",
-  [ VALUE_MUL       ] = "multiply",
-  [ VALUE_DIV       ] = "divide",
-  [ VALUE_EQUAL     ] = "equality",
-  [ VALUE_GREATER   ] = "greater than",
-  [ VALUE_LESSER    ] = "less than",
-  [ VALUE_AND       ] = "and",
-  [ VALUE_OR        ] = "or",
-  [ VALUE_ALTER     ] = "alter",
-  [ VALUE_BOTTOM    ] = "bottom",
-  [ VALUE_CLOCK     ] = "clock",
-  [ VALUE_DELAY     ] = "delay",
+  [ VALUE_LITERAL   ] = "LITERAL",
+  [ VALUE_BANG      ] = "BANG",
+  [ VALUE_ADD       ] = "ADD",
+  [ VALUE_SUB       ] = "SUBTRACT",
+  [ VALUE_MUL       ] = "MULTIPLY",
+  [ VALUE_DIV       ] = "DIVIDE",
+  [ VALUE_EQUAL     ] = "EQUALITY",
+  [ VALUE_GREATER   ] = "GREATER THAN",
+  [ VALUE_LESSER    ] = "LESS THAN",
+  [ VALUE_AND       ] = "AND",
+  [ VALUE_OR        ] = "OR",
+  [ VALUE_ALTER     ] = "ALTER",
+  [ VALUE_BOTTOM    ] = "BOTTOM",
+  [ VALUE_CLOCK     ] = "CLOCK",
+  [ VALUE_DELAY     ] = "DELAY",
   [ VALUE_E         ] = "E",
   [ VALUE_F         ] = "F",
   [ VALUE_G         ] = "G",
-  [ VALUE_HOP       ] = "hop",
-  [ VALUE_INTERFERE ] = "interfere",
-  [ VALUE_JUMP      ] = "jump",
+  [ VALUE_HOP       ] = "HOP",
+  [ VALUE_INTERFERE ] = "INTERFERE",
+  [ VALUE_JUMP      ] = "JUMP",
   [ VALUE_K         ] = "K",
-  [ VALUE_LOAD      ] = "load",
-  [ VALUE_MULTIPLEX ] = "multiplex",
-  [ VALUE_NOTE      ] = "note",
-  [ VALUE_ODDMENT   ] = "oddment",
+  [ VALUE_LOAD      ] = "LOAD",
+  [ VALUE_MULTIPLEX ] = "MULTIPLEX",
+  [ VALUE_NOTE      ] = "NOTE",
+  [ VALUE_ODDMENT   ] = "ODDMENT",
   [ VALUE_P         ] = "P",
-  [ VALUE_QUOTE     ] = "quote",
-  [ VALUE_RANDOM    ] = "random",
-  [ VALUE_STORE     ] = "store",
-  [ VALUE_TOP       ] = "top",
+  [ VALUE_QUOTE     ] = "QUOTE",
+  [ VALUE_RANDOM    ] = "RANDOM",
+  [ VALUE_STORE     ] = "STORE",
+  [ VALUE_TOP       ] = "TOP",
   [ VALUE_U         ] = "U",
   [ VALUE_V         ] = "V",
   [ VALUE_W         ] = "W",
-  [ VALUE_SAMPLER   ] = "sampler",
-  [ VALUE_SYNTH     ] = "synthesizer",
-  [ VALUE_MIDI      ] = "midi",
+  [ VALUE_SAMPLER   ] = "SAMPLER",
+  [ VALUE_SYNTH     ] = "SYNTHESIZER",
+  [ VALUE_MIDI      ] = "MIDI",
 };
 
 static SDL_Renderer* renderer = NULL;
@@ -368,7 +368,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   for (Index i = 0; i < g->head; i++) {
     const GraphNode node = g->nodes[i];
     if (node.tag == GRAPH_NODE_INPUT) {
-      draw_world_highlight(view->camera, color_input, node.point);
+      draw_world_highlight(view->camera, color_input, node.source);
     }
   }
 
@@ -448,7 +448,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const GraphNode node = g->nodes[i];
     const F32 left = (F32) (graph_panel_left + PADDING);
     const F32 top = (F32) (PADDING + ui_font.glyph.y);
-    if (v2s_equal(node.point, view->cursor) && node.tag == GRAPH_NODE_INPUT) {
+    if (node.tag == GRAPH_NODE_INPUT && v2s_equal(node.source, view->cursor)) {
       const V2F origin = {
         left,
         top + (F32) (inputs * ui_font.glyph.y),
@@ -464,7 +464,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const GraphNode node = g->nodes[i];
     const F32 left = (F32) (graph_panel_left + PADDING);
     const F32 top = (F32) (inputs * ui_font.glyph.y + PADDING);
-    if (v2s_equal(node.point, view->cursor) && node.tag == GRAPH_NODE_OUTPUT) {
+    if (node.tag == GRAPH_NODE_OUTPUT && v2s_equal(node.destination, view->cursor)) {
       const V2F origin = {
         left,
         top + (F32) (outputs * ui_font.glyph.y),

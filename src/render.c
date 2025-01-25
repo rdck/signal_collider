@@ -1,11 +1,12 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
+#include <ctype.h>
 #include "render.h"
 #include "font.ttf.h"
 #include "stb_truetype.h"
 
-#define WORLD_FONT_SIZE 48 // in pixels
-#define UI_FONT_SIZE 28 // in pixels
+#define WORLD_FONT_SIZE 40  // in pixels
+#define UI_FONT_SIZE 24     // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -13,21 +14,116 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-#define METRICS_BUFFER 0x100
-#define COLOR_STRUCTURE(rv, gv, bv, av) { .r = rv, .g = gv, .b = bv, .a = av }
+#define GRAPH_PANEL_WIDTH 400 // in pixels
+#define PADDING 8
+#define MARGIN (PADDING / 2)
+#define OPERATOR_DESCRIPTION_LINES 3
+#define PANEL_TEXT 64
 
+typedef struct Font {
+  SDL_Texture* texture;   // handle to gpu texture
+  V2S glyph;              // size of a single glyph, in pixels
+} Font;
+
+typedef struct UIContext {
+  const Font* font;
+  V2S origin;
+  V2S bounds;
+  V2S cursor;
+} UIContext;
+
+#define COLOR_STRUCTURE(rv, gv, bv, av) { .r = rv, .g = gv, .b = bv, .a = av }
 static const SDL_Color color_white     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0xFF);
 static const SDL_Color color_empty     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x80);
 static const SDL_Color color_literal   = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0xFF);
 static const SDL_Color color_pulse     = COLOR_STRUCTURE(0x80, 0xFF, 0x80, 0xFF);
 static const SDL_Color color_unpowered = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_cursor    = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0x40);
-static const SDL_Color color_graph     = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x40);
+static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF);
+static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
+static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 
-typedef struct Font {
-  SDL_Texture* texture;   // handle to gpu texture
-  V2S glyph;              // size of a single glyph, in pixels
-} Font;
+static const Char* noun_table[VALUE_CARDINAL] = {
+  [ VALUE_NONE      ] = "EMPTY TILE",
+  [ VALUE_LITERAL   ] = "LITERAL",
+  [ VALUE_BANG      ] = "BANG",
+  [ VALUE_ADD       ] = "ADD",
+  [ VALUE_SUB       ] = "SUBTRACT",
+  [ VALUE_MUL       ] = "MULTIPLY",
+  [ VALUE_DIV       ] = "DIVIDE",
+  [ VALUE_EQUAL     ] = "EQUALITY",
+  [ VALUE_GREATER   ] = "GREATER THAN",
+  [ VALUE_LESSER    ] = "LESS THAN",
+  [ VALUE_AND       ] = "AND",
+  [ VALUE_OR        ] = "OR",
+  [ VALUE_ALTER     ] = "ALTER",
+  [ VALUE_BOTTOM    ] = "BOTTOM",
+  [ VALUE_CLOCK     ] = "CLOCK",
+  [ VALUE_DELAY     ] = "DELAY",
+  [ VALUE_E         ] = "E",
+  [ VALUE_F         ] = "F",
+  [ VALUE_G         ] = "G",
+  [ VALUE_HOP       ] = "HOP",
+  [ VALUE_INTERFERE ] = "INTERFERE",
+  [ VALUE_JUMP      ] = "JUMP",
+  [ VALUE_K         ] = "K",
+  [ VALUE_LOAD      ] = "LOAD",
+  [ VALUE_MULTIPLEX ] = "MULTIPLEX",
+  [ VALUE_NOTE      ] = "NOTE",
+  [ VALUE_ODDMENT   ] = "ODDMENT",
+  [ VALUE_P         ] = "P",
+  [ VALUE_QUOTE     ] = "QUOTE",
+  [ VALUE_RANDOM    ] = "RANDOM",
+  [ VALUE_STORE     ] = "STORE",
+  [ VALUE_TOP       ] = "TOP",
+  [ VALUE_U         ] = "U",
+  [ VALUE_V         ] = "V",
+  [ VALUE_W         ] = "W",
+  [ VALUE_SAMPLER   ] = "SAMPLER",
+  [ VALUE_SYNTH     ] = "SYNTHESIZER",
+  [ VALUE_MIDI      ] = "MIDI",
+};
+
+static const Char* description_table[VALUE_CARDINAL] = {
+  [ VALUE_NONE      ] = "Open space.",
+  [ VALUE_LITERAL   ] = "",
+  [ VALUE_BANG      ] = "Activates adjacent operators.",
+  [ VALUE_ADD       ] = "Adds inputs.",
+  [ VALUE_SUB       ] = "SUBTRACT",
+  [ VALUE_MUL       ] = "MULTIPLY",
+  [ VALUE_DIV       ] = "DIVIDE",
+  [ VALUE_EQUAL     ] = "EQUALITY",
+  [ VALUE_GREATER   ] = "GREATER THAN",
+  [ VALUE_LESSER    ] = "LESS THAN",
+  [ VALUE_AND       ] = "AND",
+  [ VALUE_OR        ] = "OR",
+  [ VALUE_ALTER     ] = "ALTER",
+  [ VALUE_BOTTOM    ] = "BOTTOM",
+  [ VALUE_CLOCK     ] = "CLOCK",
+  [ VALUE_DELAY     ] = "DELAY",
+  [ VALUE_E         ] = "E",
+  [ VALUE_F         ] = "F",
+  [ VALUE_G         ] = "G",
+  [ VALUE_HOP       ] = "HOP",
+  [ VALUE_INTERFERE ] = "INTERFERE",
+  [ VALUE_JUMP      ] = "JUMP",
+  [ VALUE_K         ] = "K",
+  [ VALUE_LOAD      ] = "LOAD",
+  [ VALUE_MULTIPLEX ] = "MULTIPLEX",
+  [ VALUE_NOTE      ] = "NOTE",
+  [ VALUE_ODDMENT   ] = "ODDMENT",
+  [ VALUE_P         ] = "P",
+  [ VALUE_QUOTE     ] = "QUOTE",
+  [ VALUE_RANDOM    ] = "RANDOM",
+  [ VALUE_STORE     ] = "STORE",
+  [ VALUE_TOP       ] = "TOP",
+  [ VALUE_U         ] = "U",
+  [ VALUE_V         ] = "V",
+  [ VALUE_W         ] = "W",
+  [ VALUE_SAMPLER   ] = "SAMPLER",
+  [ VALUE_SYNTH     ] = "SYNTHESIZER",
+  [ VALUE_MIDI      ] = "MIDI",
+};
 
 static SDL_Renderer* renderer = NULL;
 
@@ -83,6 +179,11 @@ static Bool valid_atlas_point(V2S c, V2S d)
   const Bool x = c.x >= 0 && c.x < d.x;
   const Bool y = c.y >= 0 && c.y < d.y;
   return x && y;
+}
+
+static Void SDL_SetRenderDrawColorStruct(SDL_Renderer* r, SDL_Color color)
+{
+  SDL_SetRenderDrawColor(r, color.r, color.g, color.b, color.a);
 }
 
 static Font load_font(S32 font_size)
@@ -228,6 +329,7 @@ Void render_init(SDL_Renderer* sdl_renderer)
   ui_font = load_font(UI_FONT_SIZE);
 }
 
+// @rdk: We shouldn't set the color for every character.
 static Void draw_character(const Font* font, SDL_Color color, V2F origin, Char c)
 {
   const V2S uv = font_coordinate(c);
@@ -268,11 +370,54 @@ static Void draw_text(const Font* font, SDL_Color color, V2F origin, const Char*
   }
 }
 
+static Void draw_ui_text(UIContext* context, const Char* text)
+{
+  const Char* head = text;
+  while (*head) {
+
+    // skip whitespace
+    while (isspace(*head)) {
+      if (*head == '\n') {
+        context->cursor.x = 0;
+        context->cursor.y += 1;
+      } else if (*head == ' ') {
+        context->cursor.x += 1;
+      }
+      head += 1;
+    }
+
+    // measure word length
+    const Char* tail = head;
+    while (*tail && isspace(*tail) == false) {
+      tail += 1;
+    }
+    const S32 word_length = (S32) (tail - head);
+
+    // advance line if word will overflow
+    if (context->cursor.x + word_length > context->bounds.x) {
+      context->cursor.x = 0;
+      context->cursor.y += 1;
+    }
+
+    // draw word
+    for (S32 i = 0; i < word_length; i++) {
+      const V2S offset = v2s_mul(context->cursor, context->font->glyph);
+      const V2F origin = v2f_of_v2s(v2s_add(context->origin, offset));
+      draw_character(context->font, color_white, origin, head[i]);
+      context->cursor.x += 1;
+    }
+
+    // advance
+    head += word_length;
+
+  }
+}
+
 static V2F world_to_screen(V2F camera, V2S point)
 {
   const V2F tile = { (F32) world_tile, (F32) world_tile };
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
-  return v2f_mul(relative, tile);
+  return v2f_add(v2f(GRAPH_PANEL_WIDTH, 0.f), v2f_mul(relative, tile));
 }
 
 static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
@@ -298,11 +443,31 @@ static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
   SDL_RenderFillRect(renderer, &destination);
 }
 
-Void render_frame(const View* view, const Model* m, const RenderMetrics* metrics)
+Void render_frame(const View* view, const ModelGraph* model_graph, const RenderMetrics* metrics)
 {
+  // synonyms
+  const Model* const m = &model_graph->model;
+  const Graph* const g = &model_graph->graph;
+
   // clear
   SDL_SetRenderDrawColorFloat(renderer, 0.1f, 0.1f, 0.1f, SDL_ALPHA_OPAQUE_FLOAT);
   SDL_RenderClear(renderer);
+
+  // get output resolution
+  V2S window = {0};
+  const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window.x, &window.y);
+  ASSERT(output_size_status);
+
+  // draw input highlights
+  for (Index i = 0; i < g->head; i++) {
+    const GraphEdge edge = g->edges[i];
+    if (edge.tag == GRAPH_EDGE_INPUT) {
+      draw_world_highlight(view->camera, color_input, edge.target);
+    }
+  }
+
+  // draw cursor highlight
+  draw_world_highlight(view->camera, color_cursor, view->cursor);
 
   // draw model
   for (S32 y = 0; y < MODEL_Y; y++) {
@@ -330,20 +495,109 @@ Void render_frame(const View* view, const Model* m, const RenderMetrics* metrics
     }
   }
 
-  // draw performance metrics
-  Char metrics_buffer[METRICS_BUFFER] = {0};
-  SDL_snprintf(
-      metrics_buffer,
-      METRICS_BUFFER,
-      "DEBUG METRICS\nframe time: %03llu.%03llums\nframe count: %llu\nhistory index: %03lld",
-      metrics->frame_time / KILO,
-      metrics->frame_time % KILO,
-      metrics->frame_count,
-      metrics->render_index);
-  draw_text(&ui_font, color_white, v2f(0.f, 0.f), metrics_buffer);
+  // draw graph
+  const S32 graph_panel_left = window.x - GRAPH_PANEL_WIDTH;
 
-  // draw cursor highlight
-  draw_world_highlight(view->camera, color_cursor, view->cursor);
+  // draw sample panel background
+  {
+    SDL_SetRenderDrawColorStruct(renderer, color_panel);
+    const SDL_FRect panel = {
+      .x = 0.f,
+      .y = 0.f,
+      .w = GRAPH_PANEL_WIDTH,
+      .h = (F32) window.y,
+    };
+    SDL_RenderFillRect(renderer, &panel);
+  }
+
+  // draw graph panel background
+  {
+    SDL_SetRenderDrawColorStruct(renderer, color_panel);
+    const SDL_FRect panel = {
+      .x = (F32) graph_panel_left,
+      .y = 0.f,
+      .w = GRAPH_PANEL_WIDTH,
+      .h = (F32) window.y,
+    };
+    SDL_RenderFillRect(renderer, &panel);
+  }
+
+  // read hovered value
+  const Value cursor_value = model_get(m, view->cursor);
+
+  UIContext context;
+  context.font = &ui_font;
+  context.origin.x = graph_panel_left + PADDING;
+  context.origin.y = PADDING;
+  context.bounds.x = GRAPH_PANEL_WIDTH / ui_font.glyph.x;
+  context.bounds.y = 0; // unused, for now
+  context.cursor.x = 0;
+  context.cursor.y = 0;
+
+  draw_ui_text(&context, noun_table[cursor_value.tag]);
+  draw_ui_text(&context, "\n\n");
+  draw_ui_text(&context, description_table[cursor_value.tag]);
+  draw_ui_text(&context, "\n\n");
+
+  Char buffer[PANEL_TEXT] = {0};
+
+  // draw attributes
+  Index attributes = 0;
+  for (Index i = 0; i < g->head; i++) {
+    const GraphEdge edge = g->edges[i];
+    if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.origin, view->cursor)) {
+      const V2S delta = v2s_sub(edge.target, edge.origin);
+      SDL_snprintf(buffer, PANEL_TEXT, "%s at <%d, %d>\n", edge.attribute, delta.x, delta.y);
+      draw_ui_text(&context, buffer);
+      attributes += 1;
+    }
+  }
+
+  // draw separator, if necessary
+  if (attributes > 0) {
+    draw_ui_text(&context, "\n");
+  }
+
+  // draw input edges
+  Index inputs = 0;
+  for (Index i = 0; i < g->head; i++) {
+    const GraphEdge edge = g->edges[i];
+    if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.target, view->cursor)) {
+      const V2S delta = v2s_sub(edge.origin, edge.target);
+      SDL_snprintf(
+          buffer,
+          PANEL_TEXT,
+          "%s for %s at <%d, %d>\n",
+          edge.attribute,
+          noun_table[edge.cause],
+          delta.x,
+          delta.y);
+      draw_ui_text(&context, buffer);
+    }
+  }
+
+  // draw separator, if necessary
+  if (inputs > 0) {
+    draw_ui_text(&context, "\n");
+  }
+
+  // reset text drawing context
+  context.origin = v2s(PADDING, PADDING);
+  context.cursor = v2s(0, 0);
+
+  // draw debug metrics
+  draw_ui_text(&context, "DEBUG METRICS\n");
+  SDL_snprintf(
+      buffer,
+      PANEL_TEXT,
+      "frame time: %03llu.%03llums\n",
+      metrics->frame_time / KILO,
+      metrics->frame_time % KILO);
+  draw_ui_text(&context, buffer);
+  SDL_snprintf(buffer, PANEL_TEXT, "frame count: %03llu\n", metrics->frame_count);
+  draw_ui_text(&context, buffer);
+  SDL_snprintf(buffer, PANEL_TEXT, "history index: %03lld\n", metrics->render_index);
+  draw_ui_text(&context, buffer);
 
   // present
   SDL_RenderPresent(renderer);

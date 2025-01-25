@@ -133,18 +133,22 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   V2S scales = {0};
   scales.x = bounds.w / ATOM_X;
   scales.y = bounds.h / ATOM_Y;
+#ifdef TEN_EIGHTY
+  const S32 scale = 6;
+#else
   const S32 scale = MIN(scales.x, scales.y);
+#endif
 
   // free display IDs
   SDL_free(displays);
 
   const Bool window_status = SDL_CreateWindowAndRenderer(
-      WINDOW_TITLE,     // window title
-      scale * ATOM_X,   // width
-      scale * ATOM_Y,   // height
-      0,                // window flags
-      &window,          // window handle
-      &renderer);       // renderer handle
+      WINDOW_TITLE,         // window title
+      scale * ATOM_X,       // width
+      scale * ATOM_Y,       // height
+      SDL_WINDOW_RESIZABLE, // window flags
+      &window,              // window handle
+      &renderer);           // renderer handle
   if (window_status == false) {
     SDL_Log("Failed to create renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;
@@ -171,7 +175,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   render_init(renderer);
 
   // initialize the model
-  model_init(&sim_history[0]);
+  model_init(&sim_history[0].model);
 
   // tell the render thread about the first slot
   ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, 0);
@@ -300,14 +304,14 @@ SDL_AppResult SDL_AppIterate(Void* state)
   }
 
   // get model pointer from index
-  const Model* const m = &sim_history[render_index];
+  const ModelGraph* const model_graph = &sim_history[render_index];
 
   // render a frame
   RenderMetrics metrics;
   metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
   metrics.frame_count = frame_count;
   metrics.render_index = render_index;
-  render_frame(&view, m, &metrics);
+  render_frame(&view, model_graph, &metrics);
 
   // update time
   frame_begin = next_begin;

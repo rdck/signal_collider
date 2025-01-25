@@ -15,7 +15,7 @@ typedef struct RenderMetrics {
 } RenderMetrics;
 
 Void render_init(SDL_Renderer* renderer);
-Void render_frame(const View* view, const Model* model, const RenderMetrics* metrics);
+Void render_frame(const View* view, const ModelGraph* model_graph, const RenderMetrics* metrics);
 
 // @rdk: This doesn't feel like it should be the job of the renderer.
 V2S render_tile_size();

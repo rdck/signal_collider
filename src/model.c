@@ -1,4 +1,5 @@
 #include <string.h>
+#include <SDL3/SDL_log.h>
 #include "model.h"
 
 _Static_assert(sizeof(MODEL_SIGNATURE) == MODEL_SIGNATURE_BYTES + 1);
@@ -92,6 +93,54 @@ static S32 map_zero(Value value, S32 revert)
   return literal == 0 ? revert : literal;
 }
 
+static GraphEdge graph_edge(GraphEdgeTag tag, V2S origin, V2S target, ValueTag cause, const Char* attribute)
+{
+  GraphEdge edge;
+  edge.tag = tag;
+  edge.origin = origin;
+  edge.target = target;
+  edge.cause = cause;
+  edge.attribute = attribute;
+  return edge;
+}
+
+static Void record_graph_edge(Graph* graph, GraphEdge edge)
+{
+  if (graph->head < GRAPH_EDGES) {
+    graph->edges[graph->head] = edge;
+    graph->head += 1;
+  } else {
+    SDL_Log("at graph capacity");
+  }
+}
+
+static Value record_read(const Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute)
+{
+  const V2S target = v2s_add(origin, offset);
+  const Value input = model_get(m, target);
+  const GraphEdge edge = graph_edge(
+      GRAPH_EDGE_INPUT,
+      origin,
+      target,
+      cause,
+      attribute);
+  record_graph_edge(g, edge);
+  return input;
+}
+
+static Void record_write(Model* m, Graph* g, V2S origin, V2S offset, ValueTag cause, const Char* attribute, Value v)
+{
+  const V2S target = v2s_add(origin, offset);
+  model_set(m, target, v);
+  const GraphEdge edge = graph_edge(
+      GRAPH_EDGE_OUTPUT,
+      origin,
+      target,
+      cause,
+      attribute);
+  record_graph_edge(g, edge);
+}
+
 Bool is_operator(Value value)
 {
   switch (value.tag) {
@@ -139,11 +188,10 @@ Void model_init(Model* m)
 
 Value model_get(const Model* m, V2S point)
 {
-  const Value none = {0};
   if (valid_point(point)) {
     return m->map[point.y][point.x];
   } else {
-    return none;
+    return value_none;
   }
 }
 
@@ -159,8 +207,11 @@ S32 read_literal(Value v, S32 none)
   return v.tag == VALUE_LITERAL ? v.literal : none;
 }
 
-Void model_step(Model* m)
+Void model_step(Model* m, Graph* g)
 {
+  // clear graph
+  memset(g, 0, sizeof(*g));
+
   // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
@@ -179,13 +230,10 @@ Void model_step(Model* m)
       const Value value = m->map[y][x];
 
       // cache adjacent coordinates and values
-      V2S points[DIRECTION_CARDINAL];
-      Value values[DIRECTION_CARDINAL];
       Bool bang = false;
       for (Direction d = 0; d < DIRECTION_CARDINAL; d++) {
-        points[d] = add_unit_vector(origin, d);
-        values[d] = model_get(m, points[d]);
-        bang = bang || values[d].tag == VALUE_BANG;
+        const Value adjacent = model_get(m, add_unit_vector(origin, d));
+        bang = bang || adjacent.tag == VALUE_BANG;
       }
 
       // mark pulse
@@ -193,233 +241,267 @@ Void model_step(Model* m)
         m->map[y][x].pulse = true;
       }
       
-      const V2S east = unit_vector(DIRECTION_EAST);
-      const V2S west = unit_vector(DIRECTION_WEST);
-
-      // point abbreviations
-      const V2S pn = points[DIRECTION_NORTH];
-      const V2S pe = points[DIRECTION_EAST ];
-      const V2S pw = points[DIRECTION_WEST ];
-      const V2S ps = points[DIRECTION_SOUTH];
-
-      // value abbreviations
-      const Value vn = values[DIRECTION_NORTH];
-      const Value ve = values[DIRECTION_EAST ];
-      const Value vw = values[DIRECTION_WEST ];
-      const Value vs = values[DIRECTION_SOUTH];
-
-      // We won't use some of these values until additional language constructs
-      // are added.
-      UNUSED_PARAMETER(vn);
-      UNUSED_PARAMETER(vs);
-      UNUSED_PARAMETER(pe);
-      UNUSED_PARAMETER(pw);
-      UNUSED_PARAMETER(pn);
-      
       if (value.powered || bang) {
 
         switch (value.tag) {
 
           case VALUE_ADD:
             {
-              const S32 l = read_literal(vw, 0);
-              const S32 r = read_literal(ve, 0);
-              const S32 e = (l + r) % MODEL_RADIX;
-              model_set(m, ps, value_literal(e));
+              const Value augend = record_read(m, g, origin, v2s(-1, 0), value.tag, "ADDEND");
+              const Value addend = record_read(m, g, origin, v2s( 1, 0), value.tag, "ADDEND");
+              const S32 output = (read_literal(augend, 0) + read_literal(addend, 0)) % MODEL_RADIX;
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(output));
             } break;
 
           case VALUE_SUB:
             {
-              const S32 l = read_literal(vw, 0);
-              const S32 r = read_literal(ve, 0);
-              const S32 e = l - r;
-              const S32 rem = e < 0 ? e + MODEL_RADIX : e;
-              model_set(m, ps, value_literal(rem));
+              const Value minuend    = record_read(m, g, origin, v2s(-1, 0), value.tag, "MINUEND");
+              const Value subtrahend = record_read(m, g, origin, v2s( 1, 0), value.tag, "SUBTRAHEND");
+              const S32 difference = read_literal(minuend, 0) - read_literal(subtrahend, 0);
+              const S32 output = difference < 0 ? difference + MODEL_RADIX : difference;
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(output));
             } break;
 
           case VALUE_MUL:
             {
-              const S32 lhs = read_literal(vw, 0);
-              const S32 rhs = read_literal(ve, 0);
-              const S32 product = (lhs * rhs) % MODEL_RADIX;
-              model_set(m, ps, value_literal(product));
+              const Value multiplier   = record_read(m, g, origin, v2s(-1, 0), value.tag, "MULTIPLIER");
+              const Value multiplicand = record_read(m, g, origin, v2s( 1, 0), value.tag, "MULTIPLICAND");
+              const S32 output = (read_literal(multiplier, 0) * read_literal(multiplicand, 0)) % MODEL_RADIX;
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(output));
             } break;
 
           case VALUE_DIV:
             {
-              const S32 dividend = read_literal(vw, 0);
-              const S32 divisor = read_literal(ve, 1);
-              const S32 quotient = divisor == 0 ? 0 : dividend / divisor;
-              model_set(m, ps, value_literal(quotient));
+              const Value dividend = record_read(m, g, origin, v2s(-1, 0), value.tag, "DIVIDEND");
+              const Value divisor  = record_read(m, g, origin, v2s( 1, 0), value.tag, "DIVISOR");
+              const S32 divisor_literal = read_literal(divisor, 0);
+              if (divisor_literal != 0) {
+                const S32 quotient = read_literal(dividend, 0) / divisor_literal;
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(quotient));
+              }
             } break;
 
           case VALUE_EQUAL:
             {
-              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-                if (ve.literal == vw.literal) {
-                  model_set(m, ps, value_bang);
+              // How should equality (and inequality) behave when comparing operators?
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT HAND SIDE");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT HAND SIDE");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                if (lhs.literal == rhs.literal) {
+                  record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
                 }
               }
             } break;
 
           case VALUE_GREATER:
             {
-              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-                if (vw.literal > ve.literal) {
-                  model_set(m, ps, value_bang);
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT HAND SIDE");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT HAND SIDE");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                if (lhs.literal > rhs.literal) {
+                  record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
                 }
               }
             } break;
 
           case VALUE_LESSER:
             {
-              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-                if (vw.literal < ve.literal) {
-                  model_set(m, ps, value_bang);
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT HAND SIDE");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT HAND SIDE");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                if (lhs.literal < rhs.literal) {
+                  record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
                 }
               }
             } break;
 
           case VALUE_AND:
             {
-              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-                model_set(m, ps, value_literal(vw.literal & ve.literal));
-              } else if (ve.tag != VALUE_NONE && vw.tag != VALUE_NONE) {
-                model_set(m, ps, value_bang);
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT CONJUNCT");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT CONJUNCT");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(lhs.literal & rhs.literal));
+              } else if (lhs.tag != VALUE_NONE && rhs.tag != VALUE_NONE) {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
               }
             } break;
 
           case VALUE_OR:
             {
-              if (ve.tag == VALUE_LITERAL && vw.tag == VALUE_LITERAL) {
-                model_set(m, ps, value_literal(vw.literal | ve.literal));
-              } else if (ve.tag != VALUE_NONE || vw.tag != VALUE_NONE) {
-                model_set(m, ps, value_bang);
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT DISJUNCT");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT DISJUNCT");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(lhs.literal | rhs.literal));
+              } else if (lhs.tag != VALUE_NONE || rhs.tag != VALUE_NONE) {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
               }
             } break;
 
           case VALUE_ALTER:
             {
-              const S32 lhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
-              const S32 rhs = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
-              const S32 t = read_literal(model_get(m, pw), 0);
+              const Value lhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "MINIMUM");
+              const Value rhs = record_read(m, g, origin, v2s( 2, 0), value.tag, "MAXIMUM");
+              const Value t   = record_read(m, g, origin, v2s(-1, 0), value.tag, "TIME");
+              const S32 lhsv = read_literal(lhs, 0);
+              const S32 rhsv = read_literal(rhs, 0);
+              const S32 tv   = read_literal(t, 0);
               const S32 scale = MODEL_RADIX - 1;
-              const S32 output = ((scale - t) * lhs + t * rhs) / scale;
-              model_set(m, ps, value_literal(output));
+              const S32 output = ((scale - tv) * lhsv + tv * rhsv) / scale;
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(output));
             } break;
 
           case VALUE_BOTTOM:
             {
-              const S32 lhs = read_literal(vw, 0);
-              const S32 rhs = read_literal(ve, 0);
-              model_set(m, ps, value_literal(MIN(lhs, rhs)));
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                const Value output = value_literal(MIN(lhs.literal, rhs.literal));
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
+              }
             } break;
 
           case VALUE_CLOCK:
             {
-              const S32 rate = read_literal(vw, 0) + 1;
+              const Value rate_value = record_read(m, g, origin, v2s(-1, 0), value.tag, "RATE");
+              const Value mod_value  = record_read(m, g, origin, v2s( 1, 0), value.tag, "MODULUS");
+              const S32 rate = read_literal(rate_value, 0) + 1;
               if (m->frame % rate == 0) {
-                const S32 mod = read_literal(ve, MODEL_RADIX - 1) + 1;
-                const S32 output = (m->frame / rate) % mod;
-                model_set(m, ps, value_literal(output));
+                const S32 mod = map_zero(mod_value, MODEL_RADIX);
+                const Value output = value_literal((m->frame / rate) % mod);
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
               }
             } break;
 
           case VALUE_DELAY:
             {
-              const S32 rate = read_literal(vw, 0) + 1;
-              const S32 mod = map_zero(ve, 8);
+              const Value rate_value = record_read(m, g, origin, v2s(-1, 0), value.tag, "RATE");
+              const Value mod_value  = record_read(m, g, origin, v2s( 1, 0), value.tag, "MODULUS");
+              const S32 rate = read_literal(rate_value, 0) + 1;
+              const S32 mod = map_zero(mod_value, MODEL_RADIX);
               const S32 output = (m->frame / rate) % mod;
               if (output == 0) {
-                model_set(m, ps, value_bang);
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
               }
             } break;
 
           case VALUE_HOP:
             {
-              model_set(m, pe, vw);
+              // Whether we should apply the hop to nil values is unclear to me.
+              const Value input = record_read(m, g, origin, v2s(-1, 0), value.tag, "INPUT");
+              record_write(m, g, origin, v2s(1, 0), value.tag, "OUTPUT", input);
             } break;
 
           case VALUE_INTERFERE:
             {
-              const V2S px = v2s_add(origin, v2s_scale(west, 2)); // coordinate for X value
-              const V2S py = v2s_add(origin, v2s_scale(west, 1)); // coordinate for Y value
-              const S32 dx = read_literal(model_get(m, px), 0);
-              const S32 dy = read_literal(model_get(m, py), 0) + 1;
-              const V2S dest = v2s_add(origin, v2s(dx, dy));
-              model_set(m, dest, ve);
+              // Again, what to do in the nil input case is unclear to me.
+              const Value xv = record_read(m, g, origin, v2s(-2, 0), value.tag, "X COORDINATE");
+              const Value yv = record_read(m, g, origin, v2s(-1, 0), value.tag, "Y COORDINATE");
+              const Value iv = record_read(m, g, origin, v2s( 1, 0), value.tag, "VALUE");
+              const V2S delta = { read_literal(xv, 0), read_literal(yv, 0) + 1 };
+              record_write(m, g, origin, delta, value.tag, "OUTPUT", iv);
             } break;
 
           case VALUE_JUMP:
             {
-              model_set(m, ps, vn);
+              const Value input = record_read(m, g, origin, v2s(0, -1), value.tag, "INPUT");
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", input);
             } break;
 
           case VALUE_LOAD:
             {
-              if (vw.tag == VALUE_LITERAL) {
-                const Value v = m->registers[vw.literal];
-                model_set(m, ps, v);
+              const Value reg = record_read(m, g, origin, v2s(-1, 0), value.tag, "REGISTER");
+              if (reg.tag == VALUE_LITERAL) {
+                const Value v = m->registers[reg.literal];
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", v);
               }
             } break;
 
           case VALUE_MULTIPLEX:
             {
-              const S32 dx = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 1))), 0);
-              const S32 dy = read_literal(model_get(m, v2s_add(origin, v2s_scale(east, 2))), 0);
-              const V2S source = v2s_sub(origin, v2s(dx + 1, dy));
-              const Value output = model_get(m, source);
-              model_set(m, ps, output);
+              const Value xv = record_read(m, g, origin, v2s(1, 0), value.tag, "X COORDINATE");
+              const Value yv = record_read(m, g, origin, v2s(2, 0), value.tag, "Y COORDINATE");
+              const V2S delta = { - (read_literal(xv, 0) + 1), - read_literal(yv, 0) };
+              const Value iv = record_read(m, g, origin, delta, value.tag, "VALUE");
+              record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", iv);
             } break;
 
           case VALUE_NOTE:
             {
-              const S32 index   = read_literal(vw, 0);
-              const S32 octave  = index / SCALE_CARDINAL;
-              const S32 note    = index % SCALE_CARDINAL;
-              const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;
-              model_set(m, ps, value_literal(pitch));
+              const Value index = record_read(m, g, origin, v2s(-1, 0), value.tag, "NOTE INDEX");
+              if (index.tag == VALUE_LITERAL) {
+                const S32 octave  = index.literal / SCALE_CARDINAL;
+                const S32 note    = index.literal % SCALE_CARDINAL;
+                const S32 pitch   = (OCTAVE * octave + scale_table[note]) % MODEL_RADIX;
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(pitch));
+              } else {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_none);
+              }
             } break;
 
           case VALUE_ODDMENT:
             {
-              const S32 dividend = read_literal(vw, 0);
-              const S32 divisor = read_literal(ve, 0);
-              const S32 residue = divisor == 0 ? 0 : dividend % divisor;
-              model_set(m, ps, value_literal(residue));
+              const Value dividend = record_read(m, g, origin, v2s(-1, 0), value.tag, "DIVIDEND");
+              const Value divisor  = record_read(m, g, origin, v2s( 1, 0), value.tag, "DIVISOR");
+              if (dividend.tag == VALUE_LITERAL && divisor.tag == VALUE_LITERAL) {
+                const S32 d = divisor.literal == 0 ? MODEL_RADIX : divisor.literal;
+                const Value residue = value_literal(dividend.literal % d);
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", residue);
+              } else {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_none);
+              }
             } break;
 
           case VALUE_QUOTE:
             {
-              const S32 index = read_literal(vw, 0);
-              const Value output = { .tag = VALUE_BANG + index };
-              if (quotation_table[output.tag]) {
-                model_set(m, ps, output);
+              const Value index = record_read(m, g, origin, v2s(-1, 0), value.tag, "INDEX");
+              if (index.tag == VALUE_LITERAL) {
+                const Value output = {
+                  .tag = VALUE_BANG + index.literal,
+                  .powered = true,
+                };
+                if (quotation_table[output.tag]) {
+                  record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
+                } else {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_none);
+                }
+              } else {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_none);
               }
             } break;
 
           case VALUE_RANDOM:
             {
-              const S32 rate = read_literal(vw, 0) + 1;
-              if (m->frame % rate == 0) {
-                const S32 mod = map_zero(ve, 8);
-                const S32 output = rnd_pcg_next(&m->rnd) % mod;
-                model_set(m, ps, value_literal(output));
+              const Value rate = record_read(m, g, origin, v2s(-1, 0), value.tag, "RATE");
+              const Value mod  = record_read(m, g, origin, v2s( 1, 0), value.tag, "MODULUS");
+              if (rate.tag == VALUE_LITERAL && mod.tag == VALUE_LITERAL) {
+                const S32 r = rate.literal == 0 ? MODEL_RADIX : rate.literal;
+                if (m->frame % r == 0) {
+                  const S32 d = mod.literal == 0 ? MODEL_RADIX : mod.literal;
+                  const Value output = value_literal(rnd_pcg_next(&m->rnd) % d);
+                  record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
+                }
+              } else {
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_none);
               }
             } break;
 
           case VALUE_STORE:
             {
-              if (vw.tag == VALUE_LITERAL) {
-                m->registers[vw.literal] = ve;
+              const Value reg = record_read(m, g, origin, v2s(-1, 0), value.tag, "REGISTER");
+              const Value set = record_read(m, g, origin, v2s( 1, 0), value.tag, "VALUE");
+              if (reg.tag == VALUE_LITERAL) {
+                m->registers[reg.literal] = set;
               }
             } break;
 
           case VALUE_TOP:
             {
-              const S32 lhs = read_literal(vw, 0);
-              const S32 rhs = read_literal(ve, 0);
-              model_set(m, ps, value_literal(MAX(lhs, rhs)));
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                const Value output = value_literal(MAX(lhs.literal, rhs.literal));
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
+              }
             } break;
         }
       }

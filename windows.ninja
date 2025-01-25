@@ -10,7 +10,8 @@ handmade_math = vendor\handmade_math
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I $sdl\include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
 optimization = -Oi -Od
-cflags = $warnings $includes $optimization -std:c17 -experimental:c11atomics
+definitions =
+cflags = $warnings $includes $optimization $definitions -std:c17 -experimental:c11atomics
 
 rule cc
   deps = msvc

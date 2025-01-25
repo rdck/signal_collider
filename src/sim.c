@@ -417,8 +417,8 @@ Void sim_step(F32* audio_out, Index frames)
     while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
 
       // pull a message off the queue
-      ControlMessage sentinel = {0};
-      const ControlMessage message = ATOMIC_QUEUE_DEQUEUE(ControlMessage)(&control_queue, sentinel);
+      ControlMessage control_sentinel = {0};
+      const ControlMessage message = ATOMIC_QUEUE_DEQUEUE(ControlMessage)(&control_queue, control_sentinel);
       ASSERT(message.tag != CONTROL_MESSAGE_NONE);
 
       // process the message

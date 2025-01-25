@@ -78,9 +78,6 @@ MessageQueue control_queue = {0};
 // FIFO of input messages from render thread to audio thread
 MessageQueue input_queue = {0};
 
-// FIFO of load messages from render thread to audio thread
-MessageQueue load_queue = {0};
-
 // history buffer
 Model sim_history[SIM_HISTORY] = {0};
 
@@ -474,23 +471,6 @@ Void sim_step(F32* audio_out, Index frames)
 
     // the current model
     Model* const m = &sim_history[sim_head];
-
-    // process load messages
-    while (message_queue_length(&load_queue) > 0) {
-
-      // pull a message off the queue
-      Message message = {0};
-      message_dequeue(&load_queue, &message);
-
-      // validate the message
-      ASSERT(message.tag == MESSAGE_LOAD);
-      ASSERT(message.storage);
-
-      // copy the model
-      const ModelStorage* const storage = message.storage;
-      memcpy(&m->map, storage->map, sizeof(m->map));
-
-    }
 
     // process input messages
     while (message_queue_length(&input_queue) > 0) {

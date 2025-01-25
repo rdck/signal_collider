@@ -19,12 +19,6 @@ typedef enum MessageTag {
   MESSAGE_POWER,
   MESSAGE_CLEAR,
 
-  // allocation queues
-  MESSAGE_ALLOCATE,
-
-  // load queue
-  MESSAGE_LOAD,
-
   // control queue
   MESSAGE_TEMPO,
   MESSAGE_PALETTE,

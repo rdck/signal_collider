@@ -27,22 +27,6 @@ Message message_clear()
   return out;
 }
 
-Message message_alloc(Index index)
-{
-  Message out;
-  out.tag = MESSAGE_ALLOCATE;
-  out.alloc.index = index;
-  return out;
-}
-
-Message message_load(ModelStorage* storage)
-{
-  Message out;
-  out.tag = MESSAGE_LOAD;
-  out.storage = storage;
-  return out;
-}
-
 Message message_tempo(S32 tempo)
 {
   Message out;

@@ -16,7 +16,7 @@
 
 // default grid size
 #define MODEL_X 0x40
-#define MODEL_Y 0x40
+#define MODEL_Y 0x24
 #define GRAPH_NODES (MODEL_X * MODEL_Y * 4)
 
 // the base of the numeral system

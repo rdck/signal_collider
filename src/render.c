@@ -335,10 +335,11 @@ Void render_frame(const View* view, const Model* m, const RenderMetrics* metrics
   SDL_snprintf(
       metrics_buffer,
       METRICS_BUFFER,
-      "DEBUG METRICS\nframe time: %03llu.%03llums\nframe count: %llu\n",
+      "DEBUG METRICS\nframe time: %03llu.%03llums\nframe count: %llu\nhistory index: %03lld",
       metrics->frame_time / KILO,
       metrics->frame_time % KILO,
-      metrics->frame_count);
+      metrics->frame_count,
+      metrics->render_index);
   draw_text(&ui_font, color_white, v2f(0.f, 0.f), metrics_buffer);
 
   // draw cursor highlight

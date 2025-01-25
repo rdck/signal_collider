@@ -303,6 +303,7 @@ SDL_AppResult SDL_AppIterate(Void* state)
   RenderMetrics metrics;
   metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
   metrics.frame_count = frame_count;
+  metrics.render_index = render_index;
   render_frame(&view, m, &metrics);
 
   // update time

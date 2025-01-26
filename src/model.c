@@ -230,42 +230,16 @@ Void model_step(Model* m, Graph* g)
       const Value value = m->map[y][x];
 
       // cache adjacent coordinates and values
-      V2S points[DIRECTION_CARDINAL];
-      Value values[DIRECTION_CARDINAL];
       Bool bang = false;
       for (Direction d = 0; d < DIRECTION_CARDINAL; d++) {
-        points[d] = add_unit_vector(origin, d);
-        values[d] = model_get(m, points[d]);
-        bang = bang || values[d].tag == VALUE_BANG;
+        const Value adjacent = model_get(m, add_unit_vector(origin, d));
+        bang = bang || adjacent.tag == VALUE_BANG;
       }
 
       // mark pulse
       if (value.powered == false && bang) {
         m->map[y][x].pulse = true;
       }
-      
-      const V2S east = unit_vector(DIRECTION_EAST);
-      const V2S west = unit_vector(DIRECTION_WEST);
-
-      // point abbreviations
-      const V2S pn = points[DIRECTION_NORTH];
-      const V2S pe = points[DIRECTION_EAST ];
-      const V2S pw = points[DIRECTION_WEST ];
-      const V2S ps = points[DIRECTION_SOUTH];
-
-      // value abbreviations
-      const Value vn = values[DIRECTION_NORTH];
-      const Value ve = values[DIRECTION_EAST ];
-      const Value vw = values[DIRECTION_WEST ];
-      const Value vs = values[DIRECTION_SOUTH];
-
-      // We won't use some of these values until additional language constructs
-      // are added.
-      UNUSED_PARAMETER(vn);
-      UNUSED_PARAMETER(vs);
-      UNUSED_PARAMETER(pe);
-      UNUSED_PARAMETER(pw);
-      UNUSED_PARAMETER(pn);
       
       if (value.powered || bang) {
 
@@ -313,7 +287,7 @@ Void model_step(Model* m, Graph* g)
               const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT HAND SIDE");
               const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT HAND SIDE");
               if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
-                if (ve.literal == vw.literal) {
+                if (lhs.literal == rhs.literal) {
                   record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
                 }
               }
@@ -347,7 +321,7 @@ Void model_step(Model* m, Graph* g)
               const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT CONJUNCT");
               if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
                 record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(lhs.literal & rhs.literal));
-              } else if (ve.tag != VALUE_NONE && vw.tag != VALUE_NONE) {
+              } else if (lhs.tag != VALUE_NONE && rhs.tag != VALUE_NONE) {
                 record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
               }
             } break;
@@ -358,7 +332,7 @@ Void model_step(Model* m, Graph* g)
               const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT DISJUNCT");
               if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
                 record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_literal(lhs.literal | rhs.literal));
-              } else if (ve.tag != VALUE_NONE || vw.tag != VALUE_NONE) {
+              } else if (lhs.tag != VALUE_NONE || rhs.tag != VALUE_NONE) {
                 record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", value_bang);
               }
             } break;
@@ -513,16 +487,21 @@ Void model_step(Model* m, Graph* g)
 
           case VALUE_STORE:
             {
-              if (vw.tag == VALUE_LITERAL) {
-                m->registers[vw.literal] = ve;
+              const Value reg = record_read(m, g, origin, v2s(-1, 0), value.tag, "REGISTER");
+              const Value set = record_read(m, g, origin, v2s( 1, 0), value.tag, "VALUE");
+              if (reg.tag == VALUE_LITERAL) {
+                m->registers[reg.literal] = set;
               }
             } break;
 
           case VALUE_TOP:
             {
-              const S32 lhs = read_literal(vw, 0);
-              const S32 rhs = read_literal(ve, 0);
-              model_set(m, ps, value_literal(MAX(lhs, rhs)));
+              const Value lhs = record_read(m, g, origin, v2s(-1, 0), value.tag, "LEFT");
+              const Value rhs = record_read(m, g, origin, v2s( 1, 0), value.tag, "RIGHT");
+              if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
+                const Value output = value_literal(MAX(lhs.literal, rhs.literal));
+                record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
+              }
             } break;
         }
       }

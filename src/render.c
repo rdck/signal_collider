@@ -5,7 +5,7 @@
 #include "stb_truetype.h"
 
 #define WORLD_FONT_SIZE 40  // in pixels
-#define UI_FONT_SIZE 20     // in pixels
+#define UI_FONT_SIZE 24     // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)

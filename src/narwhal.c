@@ -143,12 +143,12 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   SDL_free(displays);
 
   const Bool window_status = SDL_CreateWindowAndRenderer(
-      WINDOW_TITLE,     // window title
-      scale * ATOM_X,   // width
-      scale * ATOM_Y,   // height
-      0,                // window flags
-      &window,          // window handle
-      &renderer);       // renderer handle
+      WINDOW_TITLE,         // window title
+      scale * ATOM_X,       // width
+      scale * ATOM_Y,       // height
+      SDL_WINDOW_RESIZABLE, // window flags
+      &window,              // window handle
+      &renderer);           // renderer handle
   if (window_status == false) {
     SDL_Log("Failed to create renderer: %s", SDL_GetError());
     return SDL_APP_FAILURE;

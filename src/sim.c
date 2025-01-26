@@ -11,7 +11,6 @@
 #include "env.h"
 #include "bigverb.h"
 
-#define SIM_PERIOD 4500
 #define SIM_VOICES 0x200
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440

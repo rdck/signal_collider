@@ -498,6 +498,29 @@ Void model_step(Model* m, Graph* g)
               const Value output = value_literal(MAX(lhs, rhs));
               record_write(m, g, origin, v2s(0, 1), value.tag, "OUTPUT", output);
             } break;
+
+          case VALUE_SYNTH:
+            {
+              // These coordinates have to be kept in sync with the logic in
+              // the simulation module.
+              record_read(m, g, origin, v2s(6, 0), value.tag, "OCTAVE");
+              record_read(m, g, origin, v2s(5, 0), value.tag, "PITCH");
+              record_read(m, g, origin, v2s(4, 0), value.tag, "VOLUME");
+              record_read(m, g, origin, v2s(3, 0), value.tag, "ATTACK");
+              record_read(m, g, origin, v2s(2, 0), value.tag, "HOLD");
+              record_read(m, g, origin, v2s(1, 0), value.tag, "RELEASE");
+            } break;
+
+          case VALUE_SAMPLER:
+            {
+              record_read(m, g, origin, v2s(7, 0), value.tag, "SOUND INDEX");
+              record_read(m, g, origin, v2s(6, 0), value.tag, "START TIME");
+              record_read(m, g, origin, v2s(5, 0), value.tag, "VOLUME");
+              record_read(m, g, origin, v2s(4, 0), value.tag, "ATTACK");
+              record_read(m, g, origin, v2s(3, 0), value.tag, "HOLD");
+              record_read(m, g, origin, v2s(2, 0), value.tag, "RELEASE");
+              record_read(m, g, origin, v2s(1, 0), value.tag, "PITCH");
+            } break;
         }
       }
     }

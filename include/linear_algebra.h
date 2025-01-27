@@ -143,6 +143,33 @@ static inline V2F v2f_of_v2s(V2S v)
   return out;
 }
 
+static inline V4S v4s_of_v4f(V4F v)
+{
+  V4S out;
+  out.x = (S32) v.x;
+  out.y = (S32) v.y;
+  out.z = (S32) v.z;
+  out.w = (S32) v.w;
+  return out;
+}
+
+static inline V3S v3s_of_v3f(V3F v)
+{
+  V3S out;
+  out.x = (S32) v.x;
+  out.y = (S32) v.y;
+  out.z = (S32) v.z;
+  return out;
+}
+
+static inline V2S v2s_of_v2f(V2F v)
+{
+  V2S out;
+  out.x = (S32) v.x;
+  out.y = (S32) v.y;
+  return out;
+}
+
 static inline V2F v2f_lerp(V2F l, V2F r, F32 t)
 {
   return HMM_LerpV2(l, t, r);

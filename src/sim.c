@@ -80,7 +80,7 @@ static Palette* sim_palette = &empty_palette;
 
 // global dsp parameters
 static F32 sim_global_volume = 1.f;
-static Bool sim_reverb_status = false;
+static Bool sim_reverb_status = true;
 static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;

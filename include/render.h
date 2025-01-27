@@ -14,7 +14,7 @@ typedef struct RenderMetrics {
   Index render_index;   // index into history buffer
 } RenderMetrics;
 
-Void render_init(SDL_Renderer* renderer);
+Void render_init(SDL_Renderer* renderer, F32 scale);
 Void render_frame(const View* view, const ModelGraph* model_graph, const RenderMetrics* metrics);
 
 // @rdk: This doesn't feel like it should be the job of the renderer.

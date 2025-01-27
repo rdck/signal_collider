@@ -615,7 +615,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   }
 
   // reset text drawing context
-  context.origin = v2s(PADDING, window.y - (8 * ui_font.glyph.y + PADDING));
+  context.origin = v2s(PADDING, window.y - (4 * ui_font.glyph.y + PADDING));
   context.cursor = v2s(0, 0);
 
   // draw debug metrics

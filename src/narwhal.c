@@ -167,7 +167,11 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     return SDL_APP_FAILURE;
   }
 
+#ifdef TEN_EIGHTY
+  const F32 dpi_scaling = 1.f;
+#else
   const F32 dpi_scaling = SDL_GetWindowDisplayScale(window);
+#endif
   if (dpi_scaling <= 0.f) {
     SDL_Log("Failed to get window display scale: %s", SDL_GetError());
     return SDL_APP_FAILURE;

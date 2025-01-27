@@ -134,7 +134,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   scales.x = bounds.w / ATOM_X;
   scales.y = bounds.h / ATOM_Y;
 #ifdef TEN_EIGHTY
-  const S32 scale = 6;
+  const S32 scale = MIN(6, MIN(scales.x, scales.y));
 #else
   const S32 scale = MIN(scales.x, scales.y);
 #endif
@@ -167,12 +167,18 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     return SDL_APP_FAILURE;
   }
 
+  const F32 dpi_scaling = SDL_GetWindowDisplayScale(window);
+  if (dpi_scaling <= 0.f) {
+    SDL_Log("Failed to get window display scale: %s", SDL_GetError());
+    return SDL_APP_FAILURE;
+  }
+
   ATOMIC_QUEUE_INIT(Index)(&allocation_queue, allocation_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
-  render_init(renderer);
+  render_init(renderer, dpi_scaling);
 
   // initialize the model
   model_init(&sim_history[0].model);

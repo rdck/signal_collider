@@ -6,7 +6,7 @@
 #include "stb_truetype.h"
 
 #define WORLD_FONT_SIZE 40  // in pixels
-#define UI_FONT_SIZE 24     // in pixels
+#define UI_FONT_SIZE 20     // in pixels
 #define ASCII_X 16
 #define ASCII_Y 8
 #define ASCII_AREA (ASCII_X * ASCII_Y)
@@ -14,11 +14,12 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-#define GRAPH_PANEL_WIDTH 480 // in pixels
+// #define GRAPH_PANEL_WIDTH 480 // in pixels
 #define PADDING 8
-#define MARGIN (PADDING / 2)
+// #define MARGIN (PADDING / 2)
 #define OPERATOR_DESCRIPTION_LINES 3
-#define PANEL_TEXT 64
+#define PANEL_CHARACTERS 32
+#define PANEL_WIDTH (PANEL_CHARACTERS * ui_font.glyph.x + 2 * PADDING)
 
 typedef struct Font {
   SDL_Texture* texture;   // handle to gpu texture
@@ -313,7 +314,7 @@ V2S render_tile_size()
   return v2s(tile, tile);
 }
 
-Void render_init(SDL_Renderer* sdl_renderer)
+Void render_init(SDL_Renderer* sdl_renderer, F32 scale)
 {
   // store global renderer pointer
   renderer = sdl_renderer;
@@ -321,12 +322,15 @@ Void render_init(SDL_Renderer* sdl_renderer)
   const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
   ASSERT(blend_status);
 
+  const S32 world_font_size = (S32) (WORLD_FONT_SIZE * scale);
+  const S32 ui_font_size = (S32) (UI_FONT_SIZE * scale);
+
   // load world font
-  world_font = load_font(WORLD_FONT_SIZE);
+  world_font = load_font(world_font_size);
   world_tile = MAX(world_font.glyph.x, world_font.glyph.y);
 
   // load ui font
-  ui_font = load_font(UI_FONT_SIZE);
+  ui_font = load_font(ui_font_size);
 }
 
 // @rdk: We shouldn't set the color for every character.
@@ -352,22 +356,6 @@ static Void draw_character(const Font* font, SDL_Color color, V2F origin, Char c
   SDL_SetTextureColorMod(font->texture, color.r, color.g, color.b);
   SDL_SetTextureAlphaMod(font->texture, color.a);
   SDL_RenderTexture(renderer, font->texture, &source, &destination);
-}
-
-static Void draw_text(const Font* font, SDL_Color color, V2F origin, const Char* text)
-{
-  V2F cursor = origin;
-
-  while (*text) {
-    if (*text == '\n') {
-      cursor.x = origin.x;
-      cursor.y += (F32) font->glyph.y;
-    } else {
-      draw_character(font, color, cursor, *text);
-      cursor.x += font->glyph.x;
-    }
-    text += 1;
-  }
 }
 
 static Void draw_ui_text(UIContext* context, const Char* text)
@@ -417,7 +405,7 @@ static V2F world_to_screen(V2F camera, V2S point)
 {
   const V2F tile = { (F32) world_tile, (F32) world_tile };
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
-  return v2f_add(v2f(GRAPH_PANEL_WIDTH, 0.f), v2f_mul(relative, tile));
+  return v2f_add(v2f((F32) PANEL_WIDTH, 0.f), v2f_mul(relative, tile));
 }
 
 static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
@@ -496,7 +484,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   }
 
   // draw graph
-  const S32 graph_panel_left = window.x - GRAPH_PANEL_WIDTH;
+  const S32 graph_panel_left = window.x - PANEL_WIDTH;
 
   // draw sample panel background
   {
@@ -504,7 +492,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const SDL_FRect panel = {
       .x = 0.f,
       .y = 0.f,
-      .w = GRAPH_PANEL_WIDTH,
+      .w = (F32) PANEL_WIDTH,
       .h = (F32) window.y,
     };
     SDL_RenderFillRect(renderer, &panel);
@@ -516,7 +504,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const SDL_FRect panel = {
       .x = (F32) graph_panel_left,
       .y = 0.f,
-      .w = GRAPH_PANEL_WIDTH,
+      .w = (F32) PANEL_WIDTH,
       .h = (F32) window.y,
     };
     SDL_RenderFillRect(renderer, &panel);
@@ -529,7 +517,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   context.font = &ui_font;
   context.origin.x = graph_panel_left + PADDING;
   context.origin.y = PADDING;
-  context.bounds.x = GRAPH_PANEL_WIDTH / ui_font.glyph.x;
+  context.bounds.x = PANEL_CHARACTERS;
   context.bounds.y = 0; // unused, for now
   context.cursor.x = 0;
   context.cursor.y = 0;
@@ -539,7 +527,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   draw_ui_text(&context, description_table[cursor_value.tag]);
   draw_ui_text(&context, "\n\n");
 
-  Char buffer[PANEL_TEXT] = {0};
+  Char buffer[PANEL_CHARACTERS] = {0};
 
   // draw attributes
   Index attributes = 0;
@@ -547,7 +535,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const GraphEdge edge = g->edges[i];
     if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.origin, view->cursor)) {
       const V2S delta = v2s_sub(edge.target, edge.origin);
-      SDL_snprintf(buffer, PANEL_TEXT, "%s at <%d, %d>\n", edge.attribute, delta.x, delta.y);
+      SDL_snprintf(buffer, PANEL_CHARACTERS, "%s at <%d, %d>\n", edge.attribute, delta.x, delta.y);
       draw_ui_text(&context, buffer);
       attributes += 1;
     }
@@ -566,7 +554,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
       const V2S delta = v2s_sub(edge.origin, edge.target);
       SDL_snprintf(
           buffer,
-          PANEL_TEXT,
+          PANEL_CHARACTERS,
           "%s for %s at <%d, %d>\n",
           edge.attribute,
           noun_table[edge.cause],
@@ -589,14 +577,14 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   draw_ui_text(&context, "DEBUG METRICS\n");
   SDL_snprintf(
       buffer,
-      PANEL_TEXT,
+      PANEL_CHARACTERS,
       "frame time: %03llu.%03llums\n",
       metrics->frame_time / KILO,
       metrics->frame_time % KILO);
   draw_ui_text(&context, buffer);
-  SDL_snprintf(buffer, PANEL_TEXT, "frame count: %03llu\n", metrics->frame_count);
+  SDL_snprintf(buffer, PANEL_CHARACTERS, "frame count: %03llu\n", metrics->frame_count);
   draw_ui_text(&context, buffer);
-  SDL_snprintf(buffer, PANEL_TEXT, "history index: %03lld\n", metrics->render_index);
+  SDL_snprintf(buffer, PANEL_CHARACTERS, "history index: %03lld\n", metrics->render_index);
   draw_ui_text(&context, buffer);
 
   // present

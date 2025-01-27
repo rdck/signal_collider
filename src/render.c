@@ -14,11 +14,9 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-// #define GRAPH_PANEL_WIDTH 480 // in pixels
 #define PADDING 8
-// #define MARGIN (PADDING / 2)
 #define OPERATOR_DESCRIPTION_LINES 3
-#define PANEL_CHARACTERS 32
+#define PANEL_CHARACTERS 40
 #define PANEL_WIDTH (PANEL_CHARACTERS * ui_font.glyph.x + 2 * PADDING)
 
 typedef struct Font {

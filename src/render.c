@@ -14,7 +14,7 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-#define GRAPH_PANEL_WIDTH 400 // in pixels
+#define GRAPH_PANEL_WIDTH 480 // in pixels
 #define PADDING 8
 #define MARGIN (PADDING / 2)
 #define OPERATOR_DESCRIPTION_LINES 3
@@ -85,7 +85,7 @@ static const Char* noun_table[VALUE_CARDINAL] = {
 };
 
 static const Char* description_table[VALUE_CARDINAL] = {
-  [ VALUE_NONE      ] = "Open space.",
+  [ VALUE_NONE      ] = "Nothingness.",
   [ VALUE_LITERAL   ] = "",
   [ VALUE_BANG      ] = "Activates adjacent operators.",
   [ VALUE_ADD       ] = "Adds inputs.",
@@ -121,7 +121,7 @@ static const Char* description_table[VALUE_CARDINAL] = {
   [ VALUE_V         ] = "V",
   [ VALUE_W         ] = "W",
   [ VALUE_SAMPLER   ] = "SAMPLER",
-  [ VALUE_SYNTH     ] = "SYNTHESIZER",
+  [ VALUE_SYNTH     ] = "A simple sine wave synthesizer.",
   [ VALUE_MIDI      ] = "MIDI",
 };
 

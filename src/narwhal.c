@@ -226,7 +226,8 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
     const Char* c = event->text.text;
     while (*c) {
       const S32 literal = character_literal(*c);
-      const Value value = value_table[*c];
+      Value value = value_table[*c];
+      value.powered = true;
       if (value.tag != VALUE_NONE) {
         input_value(value);
       } else if (literal >= 0) {

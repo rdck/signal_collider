@@ -16,7 +16,7 @@
 #define COLOR_CHANNELS 4
 #define PADDING 8
 #define OPERATOR_DESCRIPTION_LINES 3
-#define PANEL_CHARACTERS 40
+#define PANEL_CHARACTERS 44
 #define PANEL_WIDTH (PANEL_CHARACTERS * ui_font.glyph.x + 2 * PADDING)
 
 typedef struct Font {
@@ -44,37 +44,37 @@ static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80)
 
 static const Char* noun_table[VALUE_CARDINAL] = {
   [ VALUE_NONE      ] = "EMPTY TILE",
-  [ VALUE_LITERAL   ] = "LITERAL",
+  [ VALUE_LITERAL   ] = "NUMBER",
   [ VALUE_BANG      ] = "BANG",
-  [ VALUE_ADD       ] = "ADD",
-  [ VALUE_SUB       ] = "SUBTRACT",
-  [ VALUE_MUL       ] = "MULTIPLY",
-  [ VALUE_DIV       ] = "DIVIDE",
+  [ VALUE_ADD       ] = "ADDER",
+  [ VALUE_SUB       ] = "SUBTRACTOR",
+  [ VALUE_MUL       ] = "MULTIPLIER",
+  [ VALUE_DIV       ] = "DIVIDER",
   [ VALUE_EQUAL     ] = "EQUALITY",
-  [ VALUE_GREATER   ] = "GREATER THAN",
-  [ VALUE_LESSER    ] = "LESS THAN",
+  [ VALUE_GREATER   ] = "COMPARATOR",
+  [ VALUE_LESSER    ] = "COMPARATOR",
   [ VALUE_AND       ] = "AND",
   [ VALUE_OR        ] = "OR",
-  [ VALUE_ALTER     ] = "ALTER",
-  [ VALUE_BOTTOM    ] = "BOTTOM",
+  [ VALUE_ALTER     ] = "INTERPOLATOR",
+  [ VALUE_BOTTOM    ] = "MINIMIZER",
   [ VALUE_CLOCK     ] = "CLOCK",
   [ VALUE_DELAY     ] = "DELAY",
   [ VALUE_E         ] = "E",
   [ VALUE_F         ] = "F",
   [ VALUE_G         ] = "G",
-  [ VALUE_HOP       ] = "HOP",
-  [ VALUE_INTERFERE ] = "INTERFERE",
-  [ VALUE_JUMP      ] = "JUMP",
+  [ VALUE_HOP       ] = "HOPPER",
+  [ VALUE_INTERFERE ] = "INTERFERENCE",
+  [ VALUE_JUMP      ] = "JUMPER",
   [ VALUE_K         ] = "K",
-  [ VALUE_LOAD      ] = "LOAD",
-  [ VALUE_MULTIPLEX ] = "MULTIPLEX",
-  [ VALUE_NOTE      ] = "NOTE",
+  [ VALUE_LOAD      ] = "LOADER",
+  [ VALUE_MULTIPLEX ] = "MULTIPLEXER",
+  [ VALUE_NOTE      ] = "QUANTIZER",
   [ VALUE_ODDMENT   ] = "ODDMENT",
   [ VALUE_P         ] = "P",
-  [ VALUE_QUOTE     ] = "QUOTE",
-  [ VALUE_RANDOM    ] = "RANDOM",
-  [ VALUE_STORE     ] = "STORE",
-  [ VALUE_TOP       ] = "TOP",
+  [ VALUE_QUOTE     ] = "QUOTER",
+  [ VALUE_RANDOM    ] = "RANDOMIZER",
+  [ VALUE_STORE     ] = "STORER",
+  [ VALUE_TOP       ] = "MAXIMIZER",
   [ VALUE_U         ] = "U",
   [ VALUE_V         ] = "V",
   [ VALUE_W         ] = "W",
@@ -87,41 +87,67 @@ static const Char* description_table[VALUE_CARDINAL] = {
   [ VALUE_NONE      ] = "Nothingness.",
   [ VALUE_LITERAL   ] = "",
   [ VALUE_BANG      ] = "Activates adjacent operators.",
-  [ VALUE_ADD       ] = "Adds inputs.",
-  [ VALUE_SUB       ] = "SUBTRACT",
-  [ VALUE_MUL       ] = "MULTIPLY",
-  [ VALUE_DIV       ] = "DIVIDE",
-  [ VALUE_EQUAL     ] = "EQUALITY",
-  [ VALUE_GREATER   ] = "GREATER THAN",
-  [ VALUE_LESSER    ] = "LESS THAN",
-  [ VALUE_AND       ] = "AND",
-  [ VALUE_OR        ] = "OR",
-  [ VALUE_ALTER     ] = "ALTER",
-  [ VALUE_BOTTOM    ] = "BOTTOM",
-  [ VALUE_CLOCK     ] = "CLOCK",
-  [ VALUE_DELAY     ] = "DELAY",
+  [ VALUE_ADD       ] =
+    "Adds " ATTRIBUTE_LEFT_ADDEND " to " ATTRIBUTE_RIGHT_ADDEND ".",
+  [ VALUE_SUB       ] =
+    "Subtracts " ATTRIBUTE_SUBTRAHEND " from " ATTRIBUTE_MINUEND ".",
+  [ VALUE_MUL       ] =
+    "Multiplies " ATTRIBUTE_MULTIPLIER " by " ATTRIBUTE_MULTIPLICAND ".",
+  [ VALUE_DIV       ] =
+    "Divides " ATTRIBUTE_DIVIDEND " by " ATTRIBUTE_DIVISOR ".",
+  [ VALUE_EQUAL     ] =
+    "Produces a bang when " ATTRIBUTE_LEFT_COMPARATE " and " ATTRIBUTE_RIGHT_COMPARATE " are equal.",
+  [ VALUE_GREATER   ] =
+    "Produces a bang when " ATTRIBUTE_LEFT_COMPARATE " is greater than " ATTRIBUTE_RIGHT_COMPARATE ".",
+  [ VALUE_LESSER    ] =
+    "Produces a bang when " ATTRIBUTE_LEFT_COMPARATE " is less than " ATTRIBUTE_RIGHT_COMPARATE ".",
+  [ VALUE_AND       ] =
+    "Performs a bitwise AND when "
+      ATTRIBUTE_LEFT_CONJUNCT " and " ATTRIBUTE_RIGHT_CONJUNCT " are both numbers. "
+      "Produces a bang when both " ATTRIBUTE_LEFT_CONJUNCT " and " ATTRIBUTE_RIGHT_CONJUNCT
+      " are nonempty, otherwise.",
+  [ VALUE_OR        ] =
+    "Performs a bitwise OR when "
+      ATTRIBUTE_LEFT_CONJUNCT " and " ATTRIBUTE_RIGHT_CONJUNCT " are both numbers. "
+      "Produces a bang when either " ATTRIBUTE_LEFT_CONJUNCT " or " ATTRIBUTE_RIGHT_CONJUNCT
+      " is nonempty, otherwise.",
+  [ VALUE_ALTER     ] =
+    "Interpolates between " ATTRIBUTE_MINIMUM " and " ATTRIBUTE_MAXIMUM " by " ATTRIBUTE_TIME ".",
+  [ VALUE_BOTTOM    ] =
+    "Selects the lesser of " ATTRIBUTE_LEFT_COMPARATE " and " ATTRIBUTE_RIGHT_COMPARATE ".",
+  [ VALUE_CLOCK     ] =
+    "A clock running at rate " ATTRIBUTE_RATE ", modulo " ATTRIBUTE_DIVISOR ".",
+  [ VALUE_DELAY     ] =
+    "Produces a bang when the equivalent clock would be zero.",
   [ VALUE_E         ] = "E",
   [ VALUE_F         ] = "F",
   [ VALUE_G         ] = "G",
-  [ VALUE_HOP       ] = "HOP",
-  [ VALUE_INTERFERE ] = "INTERFERE",
-  [ VALUE_JUMP      ] = "JUMP",
+  [ VALUE_HOP       ] = "Transports values west to east.",
+  [ VALUE_INTERFERE ] =
+    "Write to program memory at relative coordinate <" ATTRIBUTE_X ", " ATTRIBUTE_Y ">.",
+  [ VALUE_JUMP      ] = "Transports values north to south.",
   [ VALUE_K         ] = "K",
-  [ VALUE_LOAD      ] = "LOAD",
-  [ VALUE_MULTIPLEX ] = "MULTIPLEX",
-  [ VALUE_NOTE      ] = "NOTE",
-  [ VALUE_ODDMENT   ] = "ODDMENT",
+  [ VALUE_LOAD      ] = "Loads value from register " ATTRIBUTE_REGISTER ".",
+  [ VALUE_MULTIPLEX ] =
+    "Reads from program memory at relative coordinate <" ATTRIBUTE_X, ", ", ATTRIBUTE_Y ">.",
+  [ VALUE_NOTE      ] =
+    "Computes the semitone value of note " ATTRIBUTE_INDEX " of the major scale.",
+  [ VALUE_ODDMENT   ] =
+    "Divides " ATTRIBUTE_DIVIDEND " by " ATTRIBUTE_DIVISOR " and takes the remainder.",
   [ VALUE_P         ] = "P",
-  [ VALUE_QUOTE     ] = "QUOTE",
-  [ VALUE_RANDOM    ] = "RANDOM",
-  [ VALUE_STORE     ] = "STORE",
-  [ VALUE_TOP       ] = "TOP",
+  [ VALUE_QUOTE     ] = "Self reference!",
+  [ VALUE_RANDOM    ] =
+    "Chooses a random value modulo " ATTRIBUTE_DIVISOR " at rate " ATTRIBUTE_RATE ".",
+  [ VALUE_STORE     ] =
+    "Stores " ATTRIBUTE_INPUT " into register " ATTRIBUTE_REGISTER ".",
+  [ VALUE_TOP       ] =
+    "Selects the greater of " ATTRIBUTE_LEFT_COMPARATE " and " ATTRIBUTE_RIGHT_COMPARATE ".",
   [ VALUE_U         ] = "U",
   [ VALUE_V         ] = "V",
   [ VALUE_W         ] = "W",
-  [ VALUE_SAMPLER   ] = "SAMPLER",
+  [ VALUE_SAMPLER   ] = "A simple sampler.",
   [ VALUE_SYNTH     ] = "A simple sine wave synthesizer.",
-  [ VALUE_MIDI      ] = "MIDI",
+  [ VALUE_MIDI      ] = "Sends MIDI.",
 };
 
 static SDL_Renderer* renderer = NULL;
@@ -520,20 +546,39 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   context.cursor.x = 0;
   context.cursor.y = 0;
 
-  draw_ui_text(&context, noun_table[cursor_value.tag]);
-  draw_ui_text(&context, "\n\n");
-  draw_ui_text(&context, description_table[cursor_value.tag]);
-  draw_ui_text(&context, "\n\n");
-
+  // for text processing
   Char buffer[PANEL_CHARACTERS] = {0};
 
+  // draw noun
+  draw_ui_text(&context, noun_table[cursor_value.tag]);
+  if (is_operator(cursor_value) && cursor_value.powered == false) {
+    draw_ui_text(&context, " (unpowered)");
+  }
+  draw_ui_text(&context, "\n\n");
+
+  // draw description
+  if (cursor_value.tag == VALUE_LITERAL) {
+    SDL_snprintf(
+        buffer,
+        PANEL_CHARACTERS,
+        "0x%02X = %02d",
+        cursor_value.literal,
+        cursor_value.literal);
+    draw_ui_text(&context, buffer);
+    draw_ui_text(&context, "\n\n");
+  } else {
+    draw_ui_text(&context, description_table[cursor_value.tag]);
+    draw_ui_text(&context, "\n\n");
+  }
+
+#if 0
   // draw attributes
   Index attributes = 0;
   for (Index i = 0; i < g->head; i++) {
     const GraphEdge edge = g->edges[i];
     if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.origin, view->cursor)) {
       const V2S delta = v2s_sub(edge.target, edge.origin);
-      SDL_snprintf(buffer, PANEL_CHARACTERS, "%s at <%d, %d>\n", edge.attribute, delta.x, delta.y);
+      SDL_snprintf(buffer, PANEL_CHARACTERS, "<%d, %d> is %s\n", delta.x, delta.y, edge.attribute);
       draw_ui_text(&context, buffer);
       attributes += 1;
     }
@@ -543,21 +588,14 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   if (attributes > 0) {
     draw_ui_text(&context, "\n");
   }
+#endif
 
   // draw input edges
   Index inputs = 0;
   for (Index i = 0; i < g->head; i++) {
     const GraphEdge edge = g->edges[i];
     if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.target, view->cursor)) {
-      const V2S delta = v2s_sub(edge.origin, edge.target);
-      SDL_snprintf(
-          buffer,
-          PANEL_CHARACTERS,
-          "%s for %s at <%d, %d>\n",
-          edge.attribute,
-          noun_table[edge.cause],
-          delta.x,
-          delta.y);
+      SDL_snprintf(buffer, PANEL_CHARACTERS, "%s for %s\n", edge.attribute, noun_table[edge.cause]);
       draw_ui_text(&context, buffer);
     }
   }

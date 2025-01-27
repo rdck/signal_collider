@@ -14,10 +14,12 @@
 #define MIN_CHAR '!'
 #define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-#define PADDING 8
+#define PADDING 6
+#define MENU_PADDING 4
 #define OPERATOR_DESCRIPTION_LINES 3
 #define PANEL_CHARACTERS 44
 #define PANEL_WIDTH (PANEL_CHARACTERS * ui_font.glyph.x + 2 * PADDING)
+#define MENU_HEIGHT (ui_font.glyph.y + 2 * PADDING)
 
 typedef struct Font {
   SDL_Texture* texture;   // handle to gpu texture
@@ -39,6 +41,7 @@ static const SDL_Color color_pulse     = COLOR_STRUCTURE(0x80, 0xFF, 0x80, 0xFF)
 static const SDL_Color color_unpowered = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_cursor    = COLOR_STRUCTURE(0x80, 0x80, 0xFF, 0x40);
 static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF);
+static const SDL_Color color_menu      = COLOR_STRUCTURE(0x20, 0x20, 0x20, 0xFF);
 static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 
@@ -429,7 +432,11 @@ static V2F world_to_screen(V2F camera, V2S point)
 {
   const V2F tile = { (F32) world_tile, (F32) world_tile };
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
-  return v2f_add(v2f((F32) PANEL_WIDTH, 0.f), v2f_mul(relative, tile));
+  const V2F offset = {
+    (F32) PANEL_WIDTH,
+    (F32) MENU_HEIGHT,
+  };
+  return v2f_add(offset, v2f_mul(relative, tile));
 }
 
 static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
@@ -510,6 +517,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   // draw graph
   const S32 graph_panel_left = window.x - PANEL_WIDTH;
 
+#if 0
   // draw sample panel background
   {
     SDL_SetRenderDrawColorStruct(renderer, color_panel);
@@ -521,6 +529,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     };
     SDL_RenderFillRect(renderer, &panel);
   }
+#endif
 
   // draw graph panel background
   {
@@ -540,7 +549,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   UIContext context;
   context.font = &ui_font;
   context.origin.x = graph_panel_left + PADDING;
-  context.origin.y = PADDING;
+  context.origin.y = MENU_HEIGHT + PADDING;
   context.bounds.x = PANEL_CHARACTERS;
   context.bounds.y = 0; // unused, for now
   context.cursor.x = 0;
@@ -606,7 +615,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   }
 
   // reset text drawing context
-  context.origin = v2s(PADDING, PADDING);
+  context.origin = v2s(PADDING, window.y - (8 * ui_font.glyph.y + PADDING));
   context.cursor = v2s(0, 0);
 
   // draw debug metrics
@@ -622,6 +631,24 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   draw_ui_text(&context, buffer);
   SDL_snprintf(buffer, PANEL_CHARACTERS, "history index: %03lld\n", metrics->render_index);
   draw_ui_text(&context, buffer);
+
+  // draw menu bar
+  {
+    SDL_SetRenderDrawColorStruct(renderer, color_menu);
+    const SDL_FRect panel = {
+      .x = 0.f,
+      .y = 0.f,
+      .w = (F32) window.x,
+      .h = (F32) (ui_font.glyph.y + 2 * PADDING),
+    };
+    SDL_RenderFillRect(renderer, &panel);
+  }
+
+  // set context for menu bar
+  context.origin = v2s(PADDING, PADDING);
+  context.cursor = v2s(0, 0);
+
+  draw_ui_text(&context, "File");
 
   // present
   SDL_RenderPresent(renderer);

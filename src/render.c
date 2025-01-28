@@ -2,32 +2,16 @@
 #include <SDL3/SDL_stdinc.h>
 #include <ctype.h>
 #include "render.h"
-#include "font.ttf.h"
-#include "stb_truetype.h"
 
-#define WORLD_FONT_SIZE 40  // in pixels
-#define UI_FONT_SIZE 20     // in pixels
-#define ASCII_X 16
-#define ASCII_Y 8
-#define ASCII_AREA (ASCII_X * ASCII_Y)
 #define EMPTY_CHARACTER '.'
-#define MIN_CHAR '!'
-#define MAX_CHAR '~'
 #define COLOR_CHANNELS 4
-#define PADDING 6
-#define MENU_PADDING 4
-#define OPERATOR_DESCRIPTION_LINES 3
-#define PANEL_CHARACTERS 44
-#define PANEL_WIDTH (PANEL_CHARACTERS * ui_font.glyph.x + 2 * PADDING)
-#define MENU_HEIGHT (ui_font.glyph.y + 2 * PADDING)
 
-typedef struct Font {
-  SDL_Texture* texture;   // handle to gpu texture
-  V2S glyph;              // size of a single glyph, in pixels
-} Font;
+typedef struct GPUFont {
+  V2S glyph;
+  SDL_Texture* texture;
+} GPUFont; 
 
 typedef struct UIContext {
-  const Font* font;
   V2S origin;
   V2S bounds;
   V2S cursor;
@@ -44,6 +28,12 @@ static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF)
 static const SDL_Color color_menu      = COLOR_STRUCTURE(0x20, 0x20, 0x20, 0xFF);
 static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
+
+static const View* view = NULL;
+static SDL_Renderer* renderer = NULL;
+static GPUFont font_small = {0};
+static GPUFont font_large = {0};
+static S32 tile_width = 0;
 
 static const Char* noun_table[VALUE_CARDINAL] = {
   [ VALUE_NONE      ] = "EMPTY TILE",
@@ -153,15 +143,6 @@ static const Char* description_table[VALUE_CARDINAL] = {
   [ VALUE_MIDI      ] = "Sends MIDI.",
 };
 
-static SDL_Renderer* renderer = NULL;
-
-// font data
-static Font world_font = {0};
-static Font ui_font = {0};
-
-// cache the world tile size
-static S32 world_tile = 0;
-
 static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_LITERAL       ] = 0,
   [ VALUE_BANG          ] = '!',
@@ -194,122 +175,20 @@ static Char representation_table[VALUE_CARDINAL] = {
   [ VALUE_MIDI          ] = 'Z',
 };
 
-static V2S font_coordinate(Char c)
-{
-  V2S out;
-  out.x = c % ASCII_X;
-  out.y = c / ASCII_X;
-  return out;
-}
-
-static Bool valid_atlas_point(V2S c, V2S d)
-{
-  const Bool x = c.x >= 0 && c.x < d.x;
-  const Bool y = c.y >= 0 && c.y < d.y;
-  return x && y;
-}
-
 static Void SDL_SetRenderDrawColorStruct(SDL_Renderer* r, SDL_Color color)
 {
   SDL_SetRenderDrawColor(r, color.r, color.g, color.b, color.a);
 }
 
-static Font load_font(S32 font_size)
+static Void load_font(GPUFont* out, const Font* font)
 {
-  // the font that we will return
-  Font font = {0};
-
-  stbtt_fontinfo font_info = {0};
-  const S32 init_result = stbtt_InitFont(&font_info, font_hack, 0);
-  ASSERT(init_result);
-
-  const F32 scale = stbtt_ScaleForPixelHeight(&font_info, (F32) font_size);
-
-  // vertical metrics
-  S32 ascent = 0;
-  S32 descent = 0;
-  S32 line_gap = 0;
-  stbtt_GetFontVMetrics(&font_info, &ascent, &descent, &line_gap);
-  const S32 scaled_ascent = (S32) (scale * ascent) + 1;
-
-  // horizontal metrics
-  S32 raw_advance = 0;
-  S32 left_side_bearing = 0;
-  stbtt_GetCodepointHMetrics(&font_info, 'M', &raw_advance, &left_side_bearing);
-
-  // dimensions
-  font.glyph.x = (S32) (scale * raw_advance) + 1;
-  font.glyph.y = font_size;
-  const S32 char_area = font.glyph.x * font.glyph.y;
-  const V2S graph = v2s_mul(v2s(ASCII_X, ASCII_Y), font.glyph);
-
-  // allocate the atlas and clear it to zero
-  Byte* const atlas = SDL_calloc(1, ASCII_AREA * char_area);
-
-  S32 w = 0;
-  S32 h = 0;
-  S32 xoff = 0;
-  S32 yoff = 0;
-
-  // iterate through ASCII characters, rendering bitmaps to atlas
-  for (Char c = MIN_CHAR; c <= MAX_CHAR; c++) {
-
-    Byte* const bitmap = stbtt_GetCodepointBitmap(
-        &font_info,
-        scale, scale,
-        c,
-        &w, &h,
-        &xoff, &yoff
-        );
-    ASSERT(w <= font.glyph.x);
-    ASSERT(h <= font.glyph.y);
-
-    const V2S p = font_coordinate(c);
-    const V2S o = v2s_mul(p, font.glyph);
-    for (S32 y = 0; y < h; y++) {
-      for (S32 x = 0; x < w; x++) {
-        const S32 x0 = o.x + xoff + x;
-        const S32 y0 = o.y + scaled_ascent + yoff + y;
-        if (valid_atlas_point(v2s(x0, y0), graph)) {
-          atlas[y0 * graph.x + x0] = bitmap[y * w + x];
-        }
-      }
-    }
-
-    stbtt_FreeBitmap(bitmap, NULL);
-
-  }
-
-#ifdef ATLAS_LINES
-  // draw debug line separators in the atlas
-  for (Index y = 0; y < ASCII_Y; y++) {
-    for (Index x = 0; x < ASCII_X * font.glyph.x; x++) {
-      atlas[y * font.glyph.y * graph.x + x] = 0xFF;
-    }
-  }
-  for (Index x = 0; x < ASCII_X; x++) {
-    for (Index y = 0; y < ASCII_Y * font.glyph.y; y++) {
-      atlas[y * graph.x + x * font.glyph.x] = 0xFF;
-    }
-  }
-#endif
-
-#ifdef WRITE_ATLAS
-  // write the atlas to a file for debugging
-  stbi_write_png(
-      "font_atlas.png",
-      graph.x,
-      graph.y,
-      1,
-      atlas,
-      graph.x
-      );
-#endif
+  const V2S graph = v2s_mul(v2s(ASCII_X, ASCII_Y), font->glyph);
+  const S32 char_area = font->glyph.x * font->glyph.y;
 
   Byte* const channels = SDL_malloc(COLOR_CHANNELS * ASCII_AREA * char_area);
   for (Index y = 0; y < graph.y; y++) {
     for (Index x = 0; x < graph.x; x++) {
-      const Byte alpha = atlas[y * graph.x + x];
+      const Byte alpha = font->bitmap[y * graph.x + x];
       channels[COLOR_CHANNELS * (y * graph.x + x) + 0] = 0xFF;
       channels[COLOR_CHANNELS * (y * graph.x + x) + 1] = 0xFF;
       channels[COLOR_CHANNELS * (y * graph.x + x) + 2] = 0xFF;
@@ -318,52 +197,51 @@ static Font load_font(S32 font_size)
   }
 
   SDL_Surface* const surface = SDL_CreateSurfaceFrom(
-      ASCII_X * font.glyph.x,                 // width
-      ASCII_Y * font.glyph.y,                 // height
+      ASCII_X * font->glyph.x,                 // width
+      ASCII_Y * font->glyph.y,                 // height
       SDL_PIXELFORMAT_RGBA32,                 // pixel format
       channels,                               // pixel data
-      COLOR_CHANNELS * ASCII_X * font.glyph.x // pitch
+      COLOR_CHANNELS * ASCII_X * font->glyph.x // pitch
       );
 
   // create gpu texture
-  font.texture = SDL_CreateTextureFromSurface(renderer, surface);
-  ASSERT(font.texture);
+  out->texture = SDL_CreateTextureFromSurface(renderer, surface);
+  out->glyph = font->glyph;
+  ASSERT(out->texture);
 
   SDL_DestroySurface(surface);
   SDL_free(channels);
-  SDL_free(atlas);
-  return font;
 }
 
-V2S render_tile_size()
+static V2F world_to_screen(V2F camera, V2S point)
 {
-  const S32 tile = MAX(world_font.glyph.x, world_font.glyph.y);
-  return v2s(tile, tile);
+  const V2F tile = { (F32) tile_width, (F32) tile_width };
+  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
+  const V2F offset = {
+    (F32) view_panel_width(view),
+    (F32) view_menu_height(view),
+  };
+  return v2f_add(offset, v2f_mul(relative, tile));
 }
 
-Void render_init(SDL_Renderer* sdl_renderer, F32 scale)
+static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
 {
-  // store global renderer pointer
-  renderer = sdl_renderer;
+  const V2F origin = world_to_screen(camera, point);
 
-  const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
-  ASSERT(blend_status);
+  // screen coordinates to fill
+  SDL_FRect destination;
+  destination.x = origin.x;
+  destination.y = origin.y;
+  destination.w = (F32) tile_width;
+  destination.h = (F32) tile_width;
 
-  const S32 world_font_size = (S32) (WORLD_FONT_SIZE * scale);
-  const S32 ui_font_size = (S32) (UI_FONT_SIZE * scale);
-
-  // load world font
-  world_font = load_font(world_font_size);
-  world_tile = MAX(world_font.glyph.x, world_font.glyph.y);
-
-  // load ui font
-  ui_font = load_font(ui_font_size);
+  SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
+  SDL_RenderFillRect(renderer, &destination);
 }
 
-// @rdk: We shouldn't set the color for every character.
-static Void draw_character(const Font* font, SDL_Color color, V2F origin, Char c)
+static Void draw_character(const GPUFont* font, SDL_Color color, V2F origin, Char c)
 {
-  const V2S uv = font_coordinate(c);
+  const V2S uv = view_atlas_coordinate(c);
 
   // texture coordinates for the glyph
   SDL_FRect source;
@@ -380,11 +258,24 @@ static Void draw_character(const Font* font, SDL_Color color, V2F origin, Char c
   destination.h = (F32) font->glyph.y;
 
   // draw
+#if 0
   SDL_SetTextureColorMod(font->texture, color.r, color.g, color.b);
   SDL_SetTextureAlphaMod(font->texture, color.a);
+#endif
   SDL_RenderTexture(renderer, font->texture, &source, &destination);
 }
 
+static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
+{
+  const V2F origin = world_to_screen(camera, point);
+  const F32 delta = (tile_width - font_large.glyph.x) / 2.f;
+  const V2F screen = { origin.x + delta, origin.y };
+  SDL_SetTextureColorMod(font_large.texture, color.r, color.g, color.b);
+  SDL_SetTextureAlphaMod(font_large.texture, color.a);
+  draw_character(&font_large, color, screen, c);
+}
+
+// @rdk: We shouldn't set the color for every character.
 static Void draw_ui_text(UIContext* context, const Char* text)
 {
   const Char* head = text;
@@ -416,9 +307,9 @@ static Void draw_ui_text(UIContext* context, const Char* text)
 
     // draw word
     for (S32 i = 0; i < word_length; i++) {
-      const V2S offset = v2s_mul(context->cursor, context->font->glyph);
+      const V2S offset = v2s_mul(context->cursor, font_small.glyph);
       const V2F origin = v2f_of_v2s(v2s_add(context->origin, offset));
-      draw_character(context->font, color_white, origin, head[i]);
+      draw_character(&font_small, color_white, origin, head[i]);
       context->cursor.x += 1;
     }
 
@@ -428,41 +319,23 @@ static Void draw_ui_text(UIContext* context, const Char* text)
   }
 }
 
-static V2F world_to_screen(V2F camera, V2S point)
+Void render_init(SDL_Renderer* sdl_renderer, const View* view_pointer)
 {
-  const V2F tile = { (F32) world_tile, (F32) world_tile };
-  const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
-  const V2F offset = {
-    (F32) PANEL_WIDTH,
-    (F32) MENU_HEIGHT,
-  };
-  return v2f_add(offset, v2f_mul(relative, tile));
+  // store global pointers
+  renderer = sdl_renderer;
+  view = view_pointer;
+
+  const Bool blend_status = SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+  ASSERT(blend_status);
+
+  load_font(&font_small, &view->font_small);
+  load_font(&font_large, &view->font_large);
+
+  // cache the tile width
+  tile_width = MAX(view->font_large.glyph.x, view->font_large.glyph.y);
 }
 
-static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
-{
-  const V2F origin = world_to_screen(camera, point);
-  const F32 delta = (world_tile - world_font.glyph.x) / 2.f;
-  const V2F screen = { origin.x + delta, origin.y };
-  draw_character(&world_font, color, screen, c);
-}
-
-static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
-{
-  const V2F origin = world_to_screen(camera, point);
-
-  // screen coordinates to fill
-  SDL_FRect destination;
-  destination.x = origin.x;
-  destination.y = origin.y;
-  destination.w = (F32) world_tile;
-  destination.h = (F32) world_tile;
-
-  SDL_SetRenderDrawColor(renderer, color.r, color.g, color.b, color.a);
-  SDL_RenderFillRect(renderer, &destination);
-}
-
-Void render_frame(const View* view, const ModelGraph* model_graph, const RenderMetrics* metrics)
+Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
 {
   // synonyms
   const Model* const m = &model_graph->model;
@@ -515,7 +388,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   }
 
   // draw graph
-  const S32 graph_panel_left = window.x - PANEL_WIDTH;
+  const S32 graph_panel_left = window.x - view_panel_width(view);
 
 #if 0
   // draw sample panel background
@@ -537,7 +410,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
     const SDL_FRect panel = {
       .x = (F32) graph_panel_left,
       .y = 0.f,
-      .w = (F32) PANEL_WIDTH,
+      .w = (F32) view_panel_width(view),
       .h = (F32) window.y,
     };
     SDL_RenderFillRect(renderer, &panel);
@@ -547,9 +420,8 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   const Value cursor_value = model_get(m, view->cursor);
 
   UIContext context;
-  context.font = &ui_font;
   context.origin.x = graph_panel_left + PADDING;
-  context.origin.y = MENU_HEIGHT + PADDING;
+  context.origin.y = view_menu_height(view) + PADDING;
   context.bounds.x = PANEL_CHARACTERS;
   context.bounds.y = 0; // unused, for now
   context.cursor.x = 0;
@@ -615,7 +487,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   }
 
   // reset text drawing context
-  context.origin = v2s(PADDING, window.y - (4 * ui_font.glyph.y + PADDING));
+  context.origin = v2s(PADDING, window.y - (4 * font_small.glyph.y + PADDING));
   context.cursor = v2s(0, 0);
 
   // draw debug metrics
@@ -639,7 +511,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
       .x = 0.f,
       .y = 0.f,
       .w = (F32) window.x,
-      .h = (F32) (ui_font.glyph.y + 2 * PADDING),
+      .h = (F32) (font_small.glyph.y + 2 * PADDING),
     };
     SDL_RenderFillRect(renderer, &panel);
   }

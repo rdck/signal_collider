@@ -19,6 +19,9 @@
 #define MODEL_Y 0x24
 #define GRAPH_EDGES (MODEL_X * MODEL_Y * 4)
 
+// @rdk: This shouldn't be defined here.
+#define SIM_VOICES 0x200
+
 // the base of the numeral system
 #define MODEL_RADIX 36
 
@@ -153,6 +156,17 @@ typedef struct ModelGraph {
   Model model;
   Graph graph;
 } ModelGraph;
+
+typedef struct DSPSamplerVoice {
+  Bool active;
+  Index sound;
+  F32 frame;
+  Index length;
+} DSPSamplerVoice;
+
+typedef struct DSPState {
+  DSPSamplerVoice voices[SIM_VOICES];
+} DSPState;
 
 // constant values
 extern const Value value_none;

@@ -12,7 +12,6 @@
 
 #include "view.h"
 #include "sim.h"
-#include "render.h"
 #include "config.h"
 #include "comms.h"
 
@@ -23,8 +22,6 @@
 #define ATOM_Y 180
 
 static SDL_Window* window = NULL;
-static SDL_Renderer* renderer = NULL;
-static SDL_AudioStream* stream = NULL;
 static Index render_index = 0;
 static View view = {0};
 
@@ -36,62 +33,8 @@ static Index allocation_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 static Index free_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 static ControlMessage control_queue_buffer[MESSAGE_QUEUE_CAPACITY] = {0};
 
-// flag for camera drag
-static Bool camera_drag = false;
-
 // half a second of audio should always be enough
 static F32 stream_buffer[Config_AUDIO_SAMPLE_RATE] = {0};
-
-#define VALUE_TABLE_CARDINAL 0x100
-static Value value_table[VALUE_TABLE_CARDINAL] = {
-  [ '!' ]       = { .tag = VALUE_BANG       },
-  [ '+' ]       = { .tag = VALUE_ADD        },
-  [ '-' ]       = { .tag = VALUE_SUB        },
-  [ '*' ]       = { .tag = VALUE_MUL        },
-  [ '/' ]       = { .tag = VALUE_DIV        },
-  [ '=' ]       = { .tag = VALUE_EQUAL      },
-  [ '>' ]       = { .tag = VALUE_GREATER    },
-  [ '<' ]       = { .tag = VALUE_LESSER     },
-  [ '&' ]       = { .tag = VALUE_AND        },
-  [ '|' ]       = { .tag = VALUE_OR         },
-  [ 'a' ]       = { .tag = VALUE_ALTER      },
-  [ 'b' ]       = { .tag = VALUE_BOTTOM     },
-  [ 'c' ]       = { .tag = VALUE_CLOCK      },
-  [ 'd' ]       = { .tag = VALUE_DELAY      },
-  [ 'h' ]       = { .tag = VALUE_HOP        },
-  [ 'i' ]       = { .tag = VALUE_INTERFERE  },
-  [ 'j' ]       = { .tag = VALUE_JUMP       },
-  [ 'l' ]       = { .tag = VALUE_LOAD       },
-  [ 'm' ]       = { .tag = VALUE_MULTIPLEX  },
-  [ 'n' ]       = { .tag = VALUE_NOTE       },
-  [ 'o' ]       = { .tag = VALUE_ODDMENT    },
-  [ 'q' ]       = { .tag = VALUE_QUOTE      },
-  [ 'r' ]       = { .tag = VALUE_RANDOM     },
-  [ 's' ]       = { .tag = VALUE_STORE      },
-  [ 't' ]       = { .tag = VALUE_TOP        },
-  [ 'x' ]       = { .tag = VALUE_SAMPLER    },
-  [ 'y' ]       = { .tag = VALUE_SYNTH      },
-  [ 'z' ]       = { .tag = VALUE_MIDI       },
-};
-
-static S32 character_literal(Char c)
-{
-  if (c >= '0' && c <= '9') {
-    return c - '0';
-  } else if (c >= 'A' && c <= 'Z') {
-    return c - 'A' + 10;
-  } else {
-    return -1;
-  }
-}
-
-static Void update_cursor(Direction d)
-{
-  const V2S next = add_unit_vector(view.cursor, d);
-  if (valid_point(next)) {
-    view.cursor = next;
-  }
-}
 
 #ifdef __EMSCRIPTEN__
 
@@ -244,6 +187,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   // free display IDs
   SDL_free(displays);
 
+  SDL_Renderer* renderer = NULL;
   const Bool window_status = SDL_CreateWindowAndRenderer(
       WINDOW_TITLE,         // window title
       scale * ATOM_X,       // width
@@ -284,7 +228,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
-  render_init(renderer, dpi_scaling);
+  view_init(&view, renderer, dpi_scaling);
 
   // initialize the model
   model_init(&sim_history[0].model);
@@ -309,6 +253,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 #else
 
+  SDL_AudioStream* stream = NULL;
   SDL_AudioSpec spec;
   spec.channels = STEREO;
   spec.format = SDL_AUDIO_F32;
@@ -325,91 +270,17 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   return SDL_APP_CONTINUE;
 }
 
-static Void input_value(Value value)
-{
-  const ControlMessage message = control_message_write(view.cursor, value);
-  ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, message);
-}
-
 SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
 {
   UNUSED_PARAMETER(state);
 
-  // get active keyboard modifiers
-  SDL_Keymod keymod = SDL_GetModState();
-
-  // get key event keycode
-  const SDL_Keycode keycode = event->key.key;
+  view_event(&view, event);
 
   if (event->type == SDL_EVENT_QUIT) {
     return SDL_APP_SUCCESS;
+  } else {
+    return SDL_APP_CONTINUE;
   }
-
-  if (event->type == SDL_EVENT_TEXT_INPUT) {
-    // Presumably there are cases where this string has length > 1, but I'm not
-    // sure what those cases are.
-    const Char* c = event->text.text;
-    while (*c) {
-      const S32 literal = character_literal(*c);
-      Value value = value_table[*c];
-      value.powered = true;
-      if (value.tag != VALUE_NONE) {
-        input_value(value);
-      } else if (literal >= 0) {
-        input_value(value_literal(literal));
-      }
-      c += 1;
-    }
-  }
-
-  if (event->type == SDL_EVENT_KEY_DOWN) {
-
-    switch (keycode) {
-
-      // arrow keys
-      case SDLK_LEFT:
-        update_cursor(DIRECTION_WEST);
-        break;
-      case SDLK_RIGHT:
-        update_cursor(DIRECTION_EAST);
-        break;
-      case SDLK_UP:
-        update_cursor(DIRECTION_NORTH);
-        break;
-      case SDLK_DOWN:
-        update_cursor(DIRECTION_SOUTH);
-        break;
-
-      case SDLK_SPACE:
-        ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, control_message_power(view.cursor));
-        break;
-
-      case SDLK_BACKSPACE:
-        input_value(value_none);
-        break;
-
-    }
-  }
-
-  if (event->type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
-    if (event->button.button == SDL_BUTTON_LEFT) {
-      camera_drag = true;
-    }
-  }
-
-  if (event->type == SDL_EVENT_MOUSE_BUTTON_UP) {
-    if (camera_drag && event->button.button == SDL_BUTTON_LEFT) {
-      camera_drag = false;
-    }
-  }
-
-  if (camera_drag && event->type == SDL_EVENT_MOUSE_MOTION) {
-    const V2F relative = { event->motion.xrel, event->motion.yrel };
-    const V2F tile = v2f_of_v2s(render_tile_size());
-    view.camera = v2f_sub(view.camera, v2f_div(relative, tile));
-  }
-
-  return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(Void* state)
@@ -432,12 +303,18 @@ SDL_AppResult SDL_AppIterate(Void* state)
   // get model pointer from index
   const ModelGraph* const model_graph = &sim_history[render_index];
 
+  // get dsp pointer from index
+  const DSPState* const dsp_state = &dsp_history[render_index];
+
+  // update view
+  view_step(&view);
+
   // render a frame
   RenderMetrics metrics;
   metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
   metrics.frame_count = frame_count;
   metrics.render_index = render_index;
-  render_frame(&view, model_graph, &metrics);
+  view_render(&view, model_graph, dsp_state, &metrics);
 
   // update time
   frame_begin = next_begin;

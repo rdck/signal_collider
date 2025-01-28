@@ -1,17 +1,13 @@
+#define SK_ENV_PRIV
 #include <math.h>
 #include <SDL3/SDL_log.h>
-
 #include "sim.h"
 #include "config.h"
-#include "dr_wav.h"
 #include "palette.h"
 #include "comms.h"
-
-#define SK_ENV_PRIV
-#include "env.h"
 #include "bigverb.h"
+#include "env.h"
 
-#define SIM_VOICES 0x200
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
@@ -55,6 +51,9 @@ typedef struct SamplerVoice {
   // sound index
   S32 sound;
 
+  // start time
+  S32 start;
+
   // relative pitch
   S32 pitch;
 
@@ -65,18 +64,16 @@ typedef struct SamplerVoice {
 
 // history buffer
 ModelGraph sim_history[SIM_HISTORY] = {0};
+DSPState dsp_history[SIM_HISTORY] = {0};
+
+// palette
+Sound sim_palette[MODEL_RADIX] = {0};
 
 // index into model history
 static Index sim_head = 0;
 
 // frames elapsed since startup
 static Index sim_frame = 0;
-
-// default empty palette
-static Palette empty_palette = {0};
-
-// palette data
-static Palette* sim_palette = &empty_palette;
 
 // global dsp parameters
 static F32 sim_global_volume = 1.f;
@@ -248,30 +245,33 @@ static Void sim_step_model()
       if (value.tag == VALUE_SAMPLER && bang) {
 
         const Index voice_index = pop_sampler_voice();
-        if (voice_index != INDEX_NONE) {
 
-          // parameter positions
-          const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 7))), INDEX_NONE);
-          const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
-          const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
-          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
-          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
-          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
-          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), MODEL_RADIX / 2);
+        // parameter positions
+        const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 7))), INDEX_NONE);
+        const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
+        const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
+        const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
+        const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
+        const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
+        const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), MODEL_RADIX / 2);
 
-          // curved values
-          const F32 curved_attack =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
-          const F32 curved_hold =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
-          const F32 curved_release =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
+        if (voice_index != INDEX_NONE && sound_index != INDEX_NONE) {
 
-          if (sound_index != INDEX_NONE) {
+          Sound* const sound = &sim_palette[sound_index];
+          if (sound->samples) {
+
+            ASSERT(sound->frames > 0);
 
             // voice to initialize
             SamplerVoice* const voice = &sim_sampler_voices[voice_index];
-            PaletteSound* const sound = &sim_palette->sounds[sound_index];
+
+            // curved values
+            const F32 curved_attack =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
+            const F32 curved_hold =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
+            const F32 curved_release =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
 
             // initialize envelope
             sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
@@ -281,7 +281,8 @@ static Void sim_step_model()
             sk_env_tick(&voice->envelope, 1.f);
 
             // initialize parameters
-            voice->frame = (offset * sound->frames) / MODEL_RADIX;
+            voice->start = offset;
+            voice->frame = 0;
             voice->sound = sound_index;
             voice->pitch = pitch - MODEL_RADIX / 2;
             voice->volume = (F32) velocity / MODEL_RADIX;
@@ -290,7 +291,7 @@ static Void sim_step_model()
         }
       }
 
-      // process sampler event
+      // process midi event
       if (value.tag == VALUE_MIDI && bang) {
 
         // parameter values
@@ -333,40 +334,51 @@ static Void sim_step_synth_voice(Index voice_index, F32* out, Index frames)
   }
 }
 
+static F32 sim_sampler_voice_frame(const SamplerVoice* voice, Index length)
+{
+  const Index start = (voice->start * length) / MODEL_RADIX;
+  const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
+  const F32 head = start + (rate * voice->frame);
+  return fmodf(head, (F32) length);
+}
+
 static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
 {
   ASSERT(voice_index != INDEX_NONE);
   SamplerVoice* const voice = &sim_sampler_voices[voice_index];
-  const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
-
-  // playback rate
-  const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
+  const Sound* const sound = &sim_palette[voice->sound];
 
   // We check this here because the palette can change.
-  if (sound->frames > 0) {
-    ASSERT(sound->interleaved);
+  if (sound->samples) {
+    ASSERT(sound->frames > 0);
     for (Index i = 0; i < frames; i++) {
+
       const F32 volume = sk_env_tick(&voice->envelope, 0) * voice->volume;
-      const F32 head = rate * (voice->frame + i);
-      F32 integral_f32;
-      const F32 fractional = modff(head, &integral_f32);
-      const Index integral = (Index) integral_f32;
-      if (integral < sound->frames - 1) {
-        const F32 lhs = f32_lerp(
-            sound->interleaved[STEREO * integral + 0],
-            sound->interleaved[STEREO * integral + 2],
-            fractional);
-        const F32 rhs = f32_lerp(
-            sound->interleaved[STEREO * integral + 1],
-            sound->interleaved[STEREO * integral + 3],
-            fractional);
-        out[STEREO * i + 0] += volume * lhs;
-        out[STEREO * i + 1] += volume * rhs;
-      }
+      const F32 playhead = sim_sampler_voice_frame(voice, sound->frames);
+
+      // decompose
+      F32 integral = 0.f;
+      const F32 fractional = modff(playhead, &integral);
+
+      const Index src = (Index) integral;
+      const Index dst = (src + 1) % sound->frames;
+
+      const F32 lhs = f32_lerp(
+          sound->samples[STEREO * src + 0],
+          sound->samples[STEREO * dst + 0],
+          fractional);
+      const F32 rhs = f32_lerp(
+          sound->samples[STEREO * src + 1],
+          sound->samples[STEREO * dst + 1],
+          fractional);
+
+      out[STEREO * i + 0] += volume * lhs;
+      out[STEREO * i + 1] += volume * rhs;
+      voice->frame += 1;
+
     }
   }
 
-  voice->frame += frames;
   if (voice->envelope.mode == 0) {
     clear_sampler_voice(voice_index);
   }
@@ -417,6 +429,9 @@ Void sim_step(F32* audio_out, Index frames)
     // the current model
     Model* const m = &sim_history[sim_head].model;
 
+    // the current dsp state
+    DSPState* const dsp_state = &dsp_history[slot];
+
     // process input messages
     while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
 
@@ -432,6 +447,7 @@ Void sim_step(F32* audio_out, Index frames)
           {
             model_set(m, message.write.point, message.write.value);
           } break;
+
         case CONTROL_MESSAGE_POWER:
           {
             const V2S c = message.power.point;
@@ -440,10 +456,38 @@ Void sim_step(F32* audio_out, Index frames)
               value->powered = ! value->powered;
             }
           } break;
+
+        case CONTROL_MESSAGE_SOUND:
+          {
+            // @rdk: We should send a message back to the render thread to free
+            // unused audio data.
+            ASSERT(message.sound.slot >= 0);
+            ASSERT(message.sound.sound.frames > 0);
+            ASSERT(message.sound.sound.samples);
+            sim_palette[message.sound.slot] = message.sound.sound;
+          } break;
+
         default: { }
 
       }
 
+    }
+
+    // write dsp visualization data
+    for (Index i = 0; i < SIM_VOICES; i++) {
+      const SamplerVoice* const voice = &sim_sampler_voices[i];
+      if (voice->sound != INDEX_NONE) {
+        const Index length = sim_palette[voice->sound].frames;
+        dsp_state->voices[i].active = true;
+        dsp_state->voices[i].sound = voice->sound;
+        dsp_state->voices[i].frame = sim_sampler_voice_frame(voice, length);
+        dsp_state->voices[i].length = length;
+      } else {
+        dsp_state->voices[i].active = false;
+        dsp_state->voices[i].frame = 0;
+        dsp_state->voices[i].length = 0;
+        dsp_state->voices[i].sound = INDEX_NONE;
+      }
     }
 
     // compute the audio for this period
@@ -482,11 +526,6 @@ Void sim_step(F32* audio_out, Index frames)
     // update shared pointer
     ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, sim_head);
 
-  } else {
-
-    // @rdk: look into SDL log metadata
-    SDL_Log("no free history buffer");
-
   }
 }
 
@@ -514,5 +553,3 @@ Void sim_init()
   }
 }
 
-#define DR_WAV_IMPLEMENTATION
-#include "dr_wav.h"

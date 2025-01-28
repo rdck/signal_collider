@@ -28,11 +28,14 @@
 
 #ifdef ATOMIC_QUEUE_INTERFACE
 
+// @rdk: Think about moving the producer and consumer out of the struct.
+// They're only ever accessed by a single thread, so they could be introducing
+// false synchronization.
 typedef struct ATOMIC_QUEUE_TYPE(ATOMIC_QUEUE_ELEMENT) {
   Index capacity;
   Index producer;
   Index consumer;
-  _Atomic Index length;
+  _Atomic Index length; // @rdk: should probably be aligned (alignas) to cache line size
   ATOMIC_QUEUE_ELEMENT* buffer;
 } ATOMIC_QUEUE_TYPE(ATOMIC_QUEUE_ELEMENT);
 

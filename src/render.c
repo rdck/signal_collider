@@ -28,12 +28,12 @@ static const SDL_Color color_panel     = COLOR_STRUCTURE(0x10, 0x10, 0x10, 0xFF)
 static const SDL_Color color_menu      = COLOR_STRUCTURE(0x20, 0x20, 0x20, 0xFF);
 static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
+static const SDL_Color color_sample_slot = COLOR_STRUCTURE(0x40, 0x40, 0x40, 0xFF);
 
 static const View* view = NULL;
 static SDL_Renderer* renderer = NULL;
 static GPUFont font_small = {0};
 static GPUFont font_large = {0};
-static S32 tile_width = 0;
 
 static const Char* noun_table[VALUE_CARDINAL] = {
   [ VALUE_NONE      ] = "EMPTY TILE",
@@ -215,6 +215,7 @@ static Void load_font(GPUFont* out, const Font* font)
 
 static V2F world_to_screen(V2F camera, V2S point)
 {
+  const S32 tile_width = view_tile_size(view);
   const V2F tile = { (F32) tile_width, (F32) tile_width };
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
   const V2F offset = {
@@ -227,6 +228,7 @@ static V2F world_to_screen(V2F camera, V2S point)
 static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
 {
   const V2F origin = world_to_screen(camera, point);
+  const S32 tile_width = view_tile_size(view);
 
   // screen coordinates to fill
   SDL_FRect destination;
@@ -239,7 +241,7 @@ static Void draw_world_highlight(V2F camera, SDL_Color color, V2S point)
   SDL_RenderFillRect(renderer, &destination);
 }
 
-static Void draw_character(const GPUFont* font, SDL_Color color, V2F origin, Char c)
+static Void draw_character(const GPUFont* font, V2F origin, Char c)
 {
   const V2S uv = view_atlas_coordinate(c);
 
@@ -267,12 +269,13 @@ static Void draw_character(const GPUFont* font, SDL_Color color, V2F origin, Cha
 
 static Void draw_world_character(V2F camera, SDL_Color color, V2S point, Char c)
 {
+  const S32 tile_width = view_tile_size(view);
   const V2F origin = world_to_screen(camera, point);
   const F32 delta = (tile_width - font_large.glyph.x) / 2.f;
   const V2F screen = { origin.x + delta, origin.y };
   SDL_SetTextureColorMod(font_large.texture, color.r, color.g, color.b);
   SDL_SetTextureAlphaMod(font_large.texture, color.a);
-  draw_character(&font_large, color, screen, c);
+  draw_character(&font_large, screen, c);
 }
 
 // @rdk: We shouldn't set the color for every character.
@@ -309,7 +312,7 @@ static Void draw_ui_text(UIContext* context, const Char* text)
     for (S32 i = 0; i < word_length; i++) {
       const V2S offset = v2s_mul(context->cursor, font_small.glyph);
       const V2F origin = v2f_of_v2s(v2s_add(context->origin, offset));
-      draw_character(&font_small, color_white, origin, head[i]);
+      draw_character(&font_small, origin, head[i]);
       context->cursor.x += 1;
     }
 
@@ -330,9 +333,6 @@ Void render_init(SDL_Renderer* sdl_renderer, const View* view_pointer)
 
   load_font(&font_small, &view->font_small);
   load_font(&font_large, &view->font_large);
-
-  // cache the tile width
-  tile_width = MAX(view->font_large.glyph.x, view->font_large.glyph.y);
 }
 
 Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
@@ -390,19 +390,31 @@ Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
   // draw graph
   const S32 graph_panel_left = window.x - view_panel_width(view);
 
-#if 0
   // draw sample panel background
   {
     SDL_SetRenderDrawColorStruct(renderer, color_panel);
     const SDL_FRect panel = {
       .x = 0.f,
-      .y = 0.f,
-      .w = (F32) PANEL_WIDTH,
-      .h = (F32) window.y,
+      .y = (F32) view_menu_height(view),
+      .w = (F32) view_panel_width(view),
+      .h = (F32) (window.y - view_menu_height(view)),
     };
     SDL_RenderFillRect(renderer, &panel);
   }
-#endif
+
+  // draw sample slots
+  const S32 sample_area_height = window.y - view_menu_height(view);
+  const S32 sample_height = sample_area_height / MODEL_RADIX;
+  for (S32 i = 0; i < MODEL_RADIX; i++) {
+    SDL_SetRenderDrawColorStruct(renderer, color_sample_slot);
+    const SDL_FRect panel = {
+      .x = 1.f,
+      .y = (F32) (sample_height * i + view_menu_height(view) + 1),
+      .w = (F32) (view_panel_width(view) - 2),
+      .h = (F32) (sample_height - 2),
+    };
+    SDL_RenderFillRect(renderer, &panel);
+  }
 
   // draw graph panel background
   {

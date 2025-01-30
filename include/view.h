@@ -70,8 +70,8 @@ typedef struct View {
 
 } View;
 
-Void view_init(View* view);
-Void view_event(View* view, const SDL_Event* event);
+Void view_init(View* view, F32 scale);
+Void view_event(View* view, const SDL_Event* event, V2S window);
 Void view_step(View* view);
 
 // character position in atlas

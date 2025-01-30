@@ -1,4 +1,5 @@
 #include <limits.h>
+#include <SDL3/SDL_dialog.h>
 #include "view.h"
 #include "comms.h"
 #include "stb_truetype.h"
@@ -154,17 +155,21 @@ static Void update_cursor(View* view, Direction d)
   }
 }
 
-Void view_init(View* view)
+Void SDLCALL open_sample_callback(Void* userdata, const Char* const* filelist, S32 filter)
 {
-  memset(view, 0, sizeof(*view));
-  bake_font(&view->font_small, FONT_SIZE_SMALL);
-  bake_font(&view->font_large, FONT_SIZE_LARGE);
 }
 
-Void view_event(View* view, const SDL_Event* event)
+Void view_init(View* view, F32 scale)
+{
+  memset(view, 0, sizeof(*view));
+  bake_font(&view->font_small, (S32) (scale *FONT_SIZE_SMALL));
+  bake_font(&view->font_large, (S32) (scale *FONT_SIZE_LARGE));
+}
+
+Void view_event(View* view, const SDL_Event* event, V2S window)
 {
   const SDL_Keycode keycode = event->key.key;
-
+  
   switch (view->interaction) {
 
     case INTERACTION_NONE:
@@ -220,8 +225,45 @@ Void view_event(View* view, const SDL_Event* event)
 
           case SDL_EVENT_MOUSE_BUTTON_DOWN:
             {
+              const SDL_Point mouse = {
+                (S32) event->button.x,
+                (S32) event->button.y,
+              };
+              const SDL_Rect program_area = {
+                .x = view_panel_width(view),
+                .y = view_menu_height(view),
+                .w = window.x - 2 * view_panel_width(view),
+                .h = window.y - view_menu_height(view),
+              };
+              const SDL_Rect sample_area = {
+                .x = 0,
+                .y = view_menu_height(view),
+                .w = view_panel_width(view),
+                .h = window.y - view_menu_height(view),
+              };
+              const Bool in_sample_area = SDL_PointInRect(&mouse, &sample_area);
+              const Bool in_program_area = SDL_PointInRect(&mouse, &program_area);
+
+              // @rdk: pull this out
+              const S32 sample_area_height = window.y - view_menu_height(view);
+              const S32 sample_height = sample_area_height / MODEL_RADIX;
+
               if (event->button.button == SDL_BUTTON_LEFT) {
-                view->interaction = INTERACTION_CAMERA;
+                if (in_program_area) {
+                  view->interaction = INTERACTION_CAMERA;
+                } else if (in_sample_area) {
+                  const S32 sample_index = (mouse.y - view_menu_height(view)) / sample_height;
+                  if (sample_index >= 0 && sample_index < MODEL_RADIX) {
+                    SDL_ShowOpenFileDialog(
+                        open_sample_callback,
+                        NULL,
+                        NULL,
+                        NULL,
+                        0,
+                        NULL,
+                        false);
+                  }
+                }
               }
             } break;
 

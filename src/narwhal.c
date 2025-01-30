@@ -230,7 +230,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
-  view_init(&view);
+  view_init(&view, dpi_scaling);
   render_init(renderer, &view);
 
   // We can free the bitmaps once they've been uploaded to the GPU.
@@ -285,7 +285,11 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
   SDL_Keymod keymod = SDL_GetModState();
 #endif
 
-  view_event(&view, event);
+  // calculate window size
+  V2S window_size = {0};
+  const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window_size.x, &window_size.y);
+
+  view_event(&view, event, window_size);
 
   if (event->type == SDL_EVENT_QUIT) {
     return SDL_APP_SUCCESS;

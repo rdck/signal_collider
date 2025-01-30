@@ -132,7 +132,7 @@ static const Char* description_table[VALUE_CARDINAL] = {
   [ VALUE_K         ] = "K",
   [ VALUE_LOAD      ] = "Loads value from register " ATTRIBUTE_REGISTER ".",
   [ VALUE_MULTIPLEX ] =
-    "Reads from program memory at relative coordinate <" ATTRIBUTE_X, ", ", ATTRIBUTE_Y ">.",
+    "Reads from program memory at relative coordinate <" ATTRIBUTE_X ", " ATTRIBUTE_Y ">.",
   [ VALUE_NOTE      ] =
     "Computes the semitone value of note " ATTRIBUTE_INDEX " of the major scale.",
   [ VALUE_ODDMENT   ] =
@@ -629,7 +629,7 @@ Void render_frame(const View* view, const ModelGraph* model_graph, const RenderM
   draw_ui_text(&context, buffer);
   SDL_snprintf(buffer, PANEL_CHARACTERS, "frame count: %03llu\n", metrics->frame_count);
   draw_ui_text(&context, buffer);
-  SDL_snprintf(buffer, PANEL_CHARACTERS, "history index: %03lld\n", metrics->render_index);
+  SDL_snprintf(buffer, PANEL_CHARACTERS, "history index: %03td\n", metrics->render_index);
   draw_ui_text(&context, buffer);
 
   // draw menu bar

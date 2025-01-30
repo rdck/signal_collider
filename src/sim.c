@@ -99,8 +99,15 @@ static Index sim_sampler_voice_head = 0;
 // sndkit data
 static sk_bigverb* sim_bigverb = NULL;
 
-_Static_assert(MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY);
-_Static_assert(MODEL_RADIX == PALETTE_SOUNDS);
+_Static_assert(
+    MESSAGE_QUEUE_CAPACITY >= SIM_HISTORY,
+    "message queue capacity must be greater than simulation history"
+    );
+
+_Static_assert(
+    MODEL_RADIX == PALETTE_SOUNDS,
+    "invalid palette size"
+    );
 
 static Index bpm_to_period(S32 tempo)
 {
@@ -433,6 +440,7 @@ Void sim_step(F32* audio_out, Index frames)
               value->powered = ! value->powered;
             }
           } break;
+        default: { }
 
       }
 

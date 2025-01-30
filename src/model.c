@@ -2,7 +2,10 @@
 #include <SDL3/SDL_log.h>
 #include "model.h"
 
-_Static_assert(sizeof(MODEL_SIGNATURE) == MODEL_SIGNATURE_BYTES + 1);
+_Static_assert(
+    sizeof(MODEL_SIGNATURE) == MODEL_SIGNATURE_BYTES + 1,
+    "invalid signature size"
+    );
 
 static V2S unit_vector_table[DIRECTION_CARDINAL] = {
   [ DIRECTION_NORTH       ] = {  0, -1 },
@@ -521,6 +524,8 @@ Void model_step(Model* m, Graph* g)
               record_read(m, g, origin, v2s(2, 0), value.tag, "RELEASE");
               record_read(m, g, origin, v2s(1, 0), value.tag, "PITCH");
             } break;
+
+          default: { }
         }
       }
     }

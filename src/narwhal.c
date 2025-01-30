@@ -3,6 +3,13 @@
 #include <SDL3/SDL_log.h>
 #include <SDL3/SDL_timer.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten/webaudio.h>
+#include <emscripten/em_math.h>
+#define AUDIO_THREAD_STACK 0x1000
+#define NODE_NAME "Narwhal"
+#endif
+
 #include "view.h"
 #include "sim.h"
 #include "render.h"
@@ -86,6 +93,93 @@ static Void update_cursor(Direction d)
   }
 }
 
+#ifdef __EMSCRIPTEN__
+
+static U8 audio_thread_stack[AUDIO_THREAD_STACK] = {0};
+
+Bool narwhal_audio(
+    S32 input_count,
+    const AudioSampleFrame* inputs,
+    S32 output_count,
+    AudioSampleFrame* outputs,
+    S32 parameter_count,
+    const AudioParamFrame* params,
+    Void* user_data)
+{
+  // For now, we'll assume we only need the first output.
+  const AudioSampleFrame output = outputs[0];
+  sim_step(stream_buffer, output.samplesPerChannel);
+  for (S32 channel = 0; channel < output.numberOfChannels && channel < STEREO; channel++) {
+    for (S32 i = 0; i < output.samplesPerChannel; i++) {
+      output.data[channel * output.samplesPerChannel + i] = stream_buffer[STEREO * i + channel];
+    }
+  }
+  return true;
+}
+
+Bool on_canvas_click(S32 event_type, const EmscriptenMouseEvent* mouse_event, Void* user_data)
+{
+  EMSCRIPTEN_WEBAUDIO_T audio_context = (EMSCRIPTEN_WEBAUDIO_T) user_data;
+  if (emscripten_audio_context_state(audio_context) != AUDIO_CONTEXT_STATE_RUNNING) {
+    emscripten_resume_audio_context_sync(audio_context);
+  }
+  return false;
+}
+
+Void audio_worklet_processor_created(
+    EMSCRIPTEN_WEBAUDIO_T audio_context,
+    Bool success,
+    Void* user_data)
+{
+  if (success) {
+
+    S32 output_channel_counts[1] = { STEREO };
+    EmscriptenAudioWorkletNodeCreateOptions options = {
+      .numberOfInputs       = 0,
+      .numberOfOutputs      = 1,
+      .outputChannelCounts  = output_channel_counts,
+    };
+
+    // create node
+    EMSCRIPTEN_AUDIO_WORKLET_NODE_T wasm_audio_worklet =
+      emscripten_create_wasm_audio_worklet_node(
+          audio_context,
+          NODE_NAME,
+          &options,
+          narwhal_audio,
+          0);
+
+    // connect it to audio context destination
+    emscripten_audio_node_connect(wasm_audio_worklet, audio_context, 0, 0);
+
+    // resume context on mouse click
+    emscripten_set_click_callback("canvas", (Void*) audio_context, 0, on_canvas_click);
+
+  } else {
+
+    SDL_Log("audio worklet processor creation failed");
+
+  }
+}
+
+Void audio_thread_initialized(EMSCRIPTEN_WEBAUDIO_T context, Bool success, Void* user_data)
+{
+  if (success) {
+    WebAudioWorkletProcessorCreateOptions opts = {
+      .name = NODE_NAME,
+    };
+    emscripten_create_wasm_audio_worklet_processor_async(
+        context,
+        &opts,
+        &audio_worklet_processor_created,
+        0);
+  } else {
+    SDL_Log("audio thread initialization failed");
+  }
+}
+
+#else
+
 static Void SDLCALL narwhal_audio(
     Void* user_data,
     SDL_AudioStream* out,
@@ -100,6 +194,8 @@ static Void SDLCALL narwhal_audio(
   SDL_PutAudioStreamData(out, stream_buffer, frames * frame_bytes);
 }
 
+#endif
+
 SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 {
   UNUSED_PARAMETER(state);
@@ -108,7 +204,13 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
   SDL_SetAppMetadata(WINDOW_TITLE, "0.1.0", "org.k-monk.narwhal");
 
-  if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) == false) {
+#ifdef __EMSCRIPTEN__
+  const SDL_InitFlags sdl_init_flags = SDL_INIT_VIDEO;
+#else
+  const SDL_InitFlags sdl_init_flags = SDL_INIT_VIDEO | SDL_INIT_AUDIO;
+#endif
+
+  if (SDL_Init(sdl_init_flags) == false) {
     SDL_Log("Failed to initialize SDL: %s", SDL_GetError());
     return SDL_APP_FAILURE;
   }
@@ -195,7 +297,18 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     ATOMIC_QUEUE_ENQUEUE(Index)(&free_queue, i);
   }
 
-  // create audio stream
+#ifdef __EMSCRIPTEN__
+
+  EMSCRIPTEN_WEBAUDIO_T context = emscripten_create_audio_context(0);
+  emscripten_start_wasm_audio_worklet_thread_async(
+      context,
+      audio_thread_stack,
+      sizeof(audio_thread_stack),
+      &audio_thread_initialized,
+      0);
+
+#else
+
   SDL_AudioSpec spec;
   spec.channels = STEREO;
   spec.format = SDL_AUDIO_F32;
@@ -206,6 +319,8 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
     return SDL_APP_FAILURE;
   }
   SDL_ResumeAudioStreamDevice(stream);
+
+#endif
 
   return SDL_APP_CONTINUE;
 }

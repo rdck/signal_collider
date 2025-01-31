@@ -5,6 +5,7 @@
 #pragma once
 
 #include <SDL3/SDL_events.h>
+#include <SDL3/SDL_asyncio.h>
 #include "prelude.h"
 #include "linear_algebra.h"
 
@@ -21,6 +22,7 @@ typedef enum Interaction {
   INTERACTION_NONE,
   INTERACTION_CAMERA,
   INTERACTION_MENU,
+  INTERACTION_FILE_DIALOG,
   INTERACTION_CARDINAL,
 } Interaction;
 
@@ -52,6 +54,8 @@ typedef struct Font {
 } Font;
 
 typedef struct View {
+
+  SDL_AsyncIOQueue* io_queue;
 
   Interaction interaction;
   union {

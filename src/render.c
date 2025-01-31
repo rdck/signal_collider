@@ -1,15 +1,22 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_stdinc.h>
+#include <SDL3/SDL_log.h>
 #include <ctype.h>
 #include "render.h"
 
 #define EMPTY_CHARACTER '.'
 #define COLOR_CHANNELS 4
 
+// @rdk: unify with texture
 typedef struct GPUFont {
   V2S glyph;
   SDL_Texture* texture;
 } GPUFont; 
+
+typedef struct Texture {
+  V2S dimensions;
+  SDL_Texture* texture;
+} Texture;
 
 typedef struct UIContext {
   V2S origin;
@@ -29,11 +36,14 @@ static const SDL_Color color_menu      = COLOR_STRUCTURE(0x20, 0x20, 0x20, 0xFF)
 static const SDL_Color color_outline   = COLOR_STRUCTURE(0xA0, 0xA0, 0xA0, 0xFF);
 static const SDL_Color color_input     = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x80);
 static const SDL_Color color_sample_slot = COLOR_STRUCTURE(0x40, 0x40, 0x40, 0xFF);
+static const SDL_Color color_dialog    = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x40);
 
 static const View* view = NULL;
 static SDL_Renderer* renderer = NULL;
 static GPUFont font_small = {0};
 static GPUFont font_large = {0};
+
+static Texture waveform_textures[MODEL_RADIX] = {0};
 
 static const Char* noun_table[VALUE_CARDINAL] = {
   [ VALUE_NONE      ] = "EMPTY TILE",
@@ -197,11 +207,11 @@ static Void load_font(GPUFont* out, const Font* font)
   }
 
   SDL_Surface* const surface = SDL_CreateSurfaceFrom(
-      ASCII_X * font->glyph.x,                 // width
-      ASCII_Y * font->glyph.y,                 // height
-      SDL_PIXELFORMAT_RGBA32,                 // pixel format
-      channels,                               // pixel data
-      COLOR_CHANNELS * ASCII_X * font->glyph.x // pitch
+      ASCII_X * font->glyph.x,                  // width
+      ASCII_Y * font->glyph.y,                  // height
+      SDL_PIXELFORMAT_RGBA32,                   // pixel format
+      channels,                                 // pixel data
+      COLOR_CHANNELS * ASCII_X * font->glyph.x  // pitch
       );
 
   // create gpu texture
@@ -402,18 +412,29 @@ Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
     SDL_RenderFillRect(renderer, &panel);
   }
 
-  // draw sample slots
+  // draw sample waveforms
   const S32 sample_area_height = window.y - view_menu_height(view);
   const S32 sample_height = sample_area_height / MODEL_RADIX;
+  SDL_SetRenderDrawColorStruct(renderer, color_sample_slot);
   for (S32 i = 0; i < MODEL_RADIX; i++) {
-    SDL_SetRenderDrawColorStruct(renderer, color_sample_slot);
+    Texture* const texture = &waveform_textures[i];
     const SDL_FRect panel = {
       .x = 1.f,
       .y = (F32) (sample_height * i + view_menu_height(view) + 1),
       .w = (F32) (view_panel_width(view) - 2),
       .h = (F32) (sample_height - 2),
     };
-    SDL_RenderFillRect(renderer, &panel);
+    if (texture->texture) {
+      const SDL_FRect source = {
+        .x = 0.f,
+        .y = 0.f,
+        .w = (F32) texture->dimensions.x,
+        .h = (F32) texture->dimensions.y,
+      };
+      SDL_RenderTexture(renderer, texture->texture, &source, &panel);
+    } else {
+      SDL_RenderFillRect(renderer, &panel);
+    }
   }
 
   // draw graph panel background
@@ -528,6 +549,18 @@ Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
     SDL_RenderFillRect(renderer, &panel);
   }
 
+  // draw file interaction overlay
+  if (view->interaction == INTERACTION_FILE_DIALOG) {
+    SDL_SetRenderDrawColorStruct(renderer, color_dialog);
+    const SDL_FRect panel = {
+      .x = 0.f,
+      .y = 0.f,
+      .w = (F32) window.x,
+      .h = (F32) window.y,
+    };
+    SDL_RenderFillRect(renderer, &panel);
+  }
+
   // set context for menu bar
   context.origin = v2s(PADDING, PADDING);
   context.cursor = v2s(0, 0);
@@ -538,5 +571,60 @@ Void render_frame(const ModelGraph* model_graph, const RenderMetrics* metrics)
   SDL_RenderPresent(renderer);
 }
 
-#define STB_TRUETYPE_IMPLEMENTATION
-#include "stb_truetype.h"
+Void render_waveform(S32 index, Sound sound)
+{
+  ASSERT(index >= 0);
+  ASSERT(index < MODEL_RADIX);
+
+  // @rdk: We should use the display size for this, not the window size.
+  V2S window = {0};
+  const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window.x, &window.y);
+  ASSERT(output_size_status);
+
+  // @rdk: pull this out
+  const S32 sample_x = view_panel_width(view);
+  const S32 sample_y = (window.y - view_menu_height(view)) / MODEL_RADIX;
+
+  Byte* const channels = SDL_calloc(1, sample_x * sample_y);
+  ASSERT(channels);
+
+  const Index frames_per_pixel = sound.frames / sample_x;
+  for (Index i = 0; i < sample_x; i++) {
+
+    // compute max for period
+    F32 max = 0.f;
+    const Index start = frames_per_pixel * i;
+    for (Index j = 0; j < frames_per_pixel; j++) {
+      const F32 l = sound.samples[2 * (start + j) + 0];
+      const F32 r = sound.samples[2 * (start + j) + 1];
+      max = MAX(max, MAX(l, r));
+    }
+
+    // fill line
+    const Index line_height = MIN(sample_y, (Index) (max * sample_y));
+    const Index top = (sample_y - line_height) / 2;
+    for (Index j = 0; j < line_height; j++) {
+      const Index k = top + j;
+      channels[k * sample_x + i] = 0x15;
+    }
+
+  }
+
+  SDL_Surface* const surface = SDL_CreateSurfaceFrom(
+      sample_x,               // width
+      sample_y,               // height
+      SDL_PIXELFORMAT_RGB332, // pixel format
+      channels,               // pixel data
+      sample_x                // pitch
+      );
+  ASSERT(surface);
+
+  // @rdk: free previous texture, if one exists
+  // upload texture
+  waveform_textures[index].dimensions = v2s(sample_x, sample_y);
+  waveform_textures[index].texture = SDL_CreateTextureFromSurface(renderer, surface);
+  if (waveform_textures[index].texture == NULL) {
+    SDL_Log("Failed to create texture: %s", SDL_GetError());
+  }
+
+}

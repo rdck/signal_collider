@@ -1,6 +1,7 @@
 #pragma once
 
 #include "model.h"
+#include "sound.h"
 
 #define MESSAGE_QUEUE_CAPACITY 0x100
 
@@ -13,10 +14,16 @@ typedef struct PowerMessage {
   V2S point;
 } PowerMessage;
 
+typedef struct SoundMessage {
+  S32 slot;
+  Sound sound;
+} SoundMessage;
+
 typedef enum ControlMessageTag {
   CONTROL_MESSAGE_NONE,
   CONTROL_MESSAGE_WRITE,
   CONTROL_MESSAGE_POWER,
+  CONTROL_MESSAGE_SOUND,
   CONTROL_MESSAGE_CARDINAL,
 } ControlMessageTag;
 
@@ -25,11 +32,13 @@ typedef struct ControlMessage {
   union {
     WriteMessage write;
     PowerMessage power;
+    SoundMessage sound;
   };
 } ControlMessage;
 
 ControlMessage control_message_write(V2S point, Value value);
 ControlMessage control_message_power(V2S point);
+ControlMessage control_message_sound(S32 slot, Sound sound);
 
 #define ATOMIC_QUEUE_ELEMENT Index
 #define ATOMIC_QUEUE_INTERFACE

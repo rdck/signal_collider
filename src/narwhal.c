@@ -288,6 +288,9 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
   // calculate window size
   V2S window_size = {0};
   const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window_size.x, &window_size.y);
+  if (output_size_status == false) {
+    SDL_Log("Failed to get render output size: %s", SDL_GetError());
+  }
 
   view_event(&view, event, window_size);
 

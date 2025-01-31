@@ -28,3 +28,12 @@ ControlMessage control_message_power(V2S point)
   message.power.point = point;
   return message;
 }
+
+ControlMessage control_message_sound(S32 slot, Sound sound)
+{
+  ControlMessage message;
+  message.tag = CONTROL_MESSAGE_SOUND;
+  message.sound.slot = slot;
+  message.sound.sound = sound;
+  return message;
+}

@@ -3,7 +3,6 @@
 
 #include "sim.h"
 #include "config.h"
-#include "dr_wav.h"
 #include "palette.h"
 #include "comms.h"
 
@@ -66,17 +65,14 @@ typedef struct SamplerVoice {
 // history buffer
 ModelGraph sim_history[SIM_HISTORY] = {0};
 
+// palette
+Sound sim_palette[MODEL_RADIX] = {0};
+
 // index into model history
 static Index sim_head = 0;
 
 // frames elapsed since startup
 static Index sim_frame = 0;
-
-// default empty palette
-static Palette empty_palette = {0};
-
-// palette data
-static Palette* sim_palette = &empty_palette;
 
 // global dsp parameters
 static F32 sim_global_volume = 1.f;
@@ -271,7 +267,7 @@ static Void sim_step_model()
 
             // voice to initialize
             SamplerVoice* const voice = &sim_sampler_voices[voice_index];
-            PaletteSound* const sound = &sim_palette->sounds[sound_index];
+            Sound* const sound = &sim_palette[sound_index];
 
             // initialize envelope
             sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
@@ -337,14 +333,14 @@ static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
 {
   ASSERT(voice_index != INDEX_NONE);
   SamplerVoice* const voice = &sim_sampler_voices[voice_index];
-  const PaletteSound* const sound = &sim_palette->sounds[voice->sound];
+  const Sound* const sound = &sim_palette[voice->sound];
 
   // playback rate
   const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
 
   // We check this here because the palette can change.
   if (sound->frames > 0) {
-    ASSERT(sound->interleaved);
+    ASSERT(sound->samples);
     for (Index i = 0; i < frames; i++) {
       const F32 volume = sk_env_tick(&voice->envelope, 0) * voice->volume;
       const F32 head = rate * (voice->frame + i);
@@ -353,12 +349,12 @@ static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
       const Index integral = (Index) integral_f32;
       if (integral < sound->frames - 1) {
         const F32 lhs = f32_lerp(
-            sound->interleaved[STEREO * integral + 0],
-            sound->interleaved[STEREO * integral + 2],
+            sound->samples[STEREO * integral + 0],
+            sound->samples[STEREO * integral + 2],
             fractional);
         const F32 rhs = f32_lerp(
-            sound->interleaved[STEREO * integral + 1],
-            sound->interleaved[STEREO * integral + 3],
+            sound->samples[STEREO * integral + 1],
+            sound->samples[STEREO * integral + 3],
             fractional);
         out[STEREO * i + 0] += volume * lhs;
         out[STEREO * i + 1] += volume * rhs;
@@ -432,6 +428,7 @@ Void sim_step(F32* audio_out, Index frames)
           {
             model_set(m, message.write.point, message.write.value);
           } break;
+
         case CONTROL_MESSAGE_POWER:
           {
             const V2S c = message.power.point;
@@ -440,6 +437,17 @@ Void sim_step(F32* audio_out, Index frames)
               value->powered = ! value->powered;
             }
           } break;
+
+        case CONTROL_MESSAGE_SOUND:
+          {
+            // @rdk: We should send a message back to the render thread to free
+            // unused audio data.
+            ASSERT(message.sound.slot >= 0);
+            ASSERT(message.sound.sound.frames > 0);
+            ASSERT(message.sound.sound.samples);
+            sim_palette[message.sound.slot] = message.sound.sound;
+          } break;
+
         default: { }
 
       }
@@ -514,5 +522,3 @@ Void sim_init()
   }
 }
 
-#define DR_WAV_IMPLEMENTATION
-#include "dr_wav.h"

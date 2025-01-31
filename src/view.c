@@ -1,12 +1,24 @@
 #include <limits.h>
 #include <SDL3/SDL_dialog.h>
+#include <SDL3/SDL_log.h>
 #include "view.h"
 #include "comms.h"
 #include "stb_truetype.h"
+#include "dr_wav.h"
 #include "font.ttf.h"
+#include "render.h"
 
-#define FONT_SIZE_LARGE 40 // in pixels
+#define FONT_SIZE_LARGE 32 // in pixels
 #define FONT_SIZE_SMALL 20 // in pixels
+
+typedef struct SampleLoadData {
+  View* view;
+  S32 index;
+} SampleLoadData;
+
+typedef struct FileLoaded {
+  S32 index;
+} FileLoaded;
 
 static ValueTag value_table[CHAR_MAX + 1] = {
   [ '!' ]       = VALUE_BANG       ,
@@ -155,15 +167,32 @@ static Void update_cursor(View* view, Direction d)
   }
 }
 
-Void SDLCALL open_sample_callback(Void* userdata, const Char* const* filelist, S32 filter)
+Void SDLCALL open_sample_callback(Void* user_data, const Char* const* file_list, S32 filter)
 {
+  UNUSED_PARAMETER(filter);
+  SampleLoadData* const data = user_data;
+  if (file_list) {
+    const Char* const path = file_list[0];
+    if (path) {
+      FileLoaded* const loaded = SDL_malloc(sizeof(*loaded));
+      loaded->index = data->index;
+      const Bool load_file_result = SDL_LoadFileAsync(path, data->view->io_queue, loaded);
+      if (load_file_result == false) {
+        SDL_Log("SDL_LoadFileAsync failed: %s", SDL_GetError());
+        SDL_free(loaded);
+      }
+    }
+  }
+  data->view->interaction = INTERACTION_NONE;
+  SDL_free(data);
 }
 
 Void view_init(View* view, F32 scale)
 {
   memset(view, 0, sizeof(*view));
-  bake_font(&view->font_small, (S32) (scale *FONT_SIZE_SMALL));
-  bake_font(&view->font_large, (S32) (scale *FONT_SIZE_LARGE));
+  bake_font(&view->font_small, (S32) (scale * FONT_SIZE_SMALL));
+  bake_font(&view->font_large, (S32) (scale * FONT_SIZE_LARGE));
+  view->io_queue = SDL_CreateAsyncIOQueue();
 }
 
 Void view_event(View* view, const SDL_Event* event, V2S window)
@@ -251,17 +280,21 @@ Void view_event(View* view, const SDL_Event* event, V2S window)
               if (event->button.button == SDL_BUTTON_LEFT) {
                 if (in_program_area) {
                   view->interaction = INTERACTION_CAMERA;
-                } else if (in_sample_area) {
+                } else if (in_sample_area && event->button.clicks > 1) {
                   const S32 sample_index = (mouse.y - view_menu_height(view)) / sample_height;
                   if (sample_index >= 0 && sample_index < MODEL_RADIX) {
+                    SampleLoadData* const data = SDL_malloc(sizeof(*data));
+                    data->view = view;
+                    data->index = sample_index;
                     SDL_ShowOpenFileDialog(
                         open_sample_callback,
-                        NULL,
+                        data,
                         NULL,
                         NULL,
                         0,
                         NULL,
                         false);
+                    view->interaction = INTERACTION_FILE_DIALOG;
                   }
                 }
               }
@@ -304,6 +337,46 @@ Void view_event(View* view, const SDL_Event* event, V2S window)
 
 Void view_step(View* view)
 {
+  Bool finished = false;
+  while (finished == false) {
+    SDL_AsyncIOOutcome outcome = {0};
+    const Bool result = SDL_GetAsyncIOResult(view->io_queue, &outcome);
+    if (result) {
+      ASSERT(outcome.buffer);
+      ASSERT(outcome.bytes_transferred > 0);
+      FileLoaded* const file_loaded = outcome.userdata;
+      drwav wav = {0};
+      const Bool init_status = drwav_init_memory(
+          &wav,
+          outcome.buffer,
+          outcome.bytes_transferred,
+          NULL);
+      ASSERT(init_status);
+      ASSERT(wav.totalPCMFrameCount > 0);
+      if (wav.channels == STEREO) {
+        // @rdk: Free this later.
+        F32* const samples = SDL_malloc(wav.totalPCMFrameCount * wav.channels * sizeof(*samples));
+        const U64 read = drwav_read_pcm_frames_f32(&wav, wav.totalPCMFrameCount, samples);
+        ASSERT(read == wav.totalPCMFrameCount);
+        const Sound sound = {
+          .frames = wav.totalPCMFrameCount,
+          .samples = samples,
+        };
+        // @rdk: It seems wrong that we need bidirectional dependency for this.
+        render_waveform(file_loaded->index, sound);
+
+        ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+            &control_queue,
+            control_message_sound(file_loaded->index, sound));
+
+      } else {
+        SDL_Log("wav file must be stereo");
+      }
+      SDL_free(file_loaded);
+    } else {
+      finished = true;
+    }
+  }
 }
 
 V2S view_atlas_coordinate(Char c)
@@ -336,3 +409,9 @@ S32 view_tile_size(const View* view)
   const V2S glyph = view->font_large.glyph;
   return MAX(glyph.x, glyph.y);
 }
+
+#define DR_WAV_IMPLEMENTATION
+#include "dr_wav.h"
+
+#define STB_TRUETYPE_IMPLEMENTATION
+#include "stb_truetype.h"

@@ -490,11 +490,6 @@ Void sim_step(F32* audio_out, Index frames)
     // update shared pointer
     ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, sim_head);
 
-  } else {
-
-    // @rdk: look into SDL log metadata
-    SDL_Log("no free history buffer");
-
   }
 }
 

@@ -8,6 +8,10 @@
 #include "font.ttf.h"
 #include "render.h"
 
+#ifdef DEBUG_ATLAS
+#include "stb_image_write.h"
+#endif
+
 #define FONT_SIZE_LARGE 32 // in pixels
 #define FONT_SIZE_SMALL 20 // in pixels
 
@@ -415,3 +419,8 @@ S32 view_tile_size(const View* view)
 
 #define STB_TRUETYPE_IMPLEMENTATION
 #include "stb_truetype.h"
+
+#ifdef DEBUG_ATLAS
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include "stb_image_write.h"
+#endif

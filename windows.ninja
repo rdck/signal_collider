@@ -10,7 +10,7 @@ handmade_math = vendor\handmade_math
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I $sdl\include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
 optimization = -Oi -Od
-definitions = -D TEN_EIGHTY
+definitions =
 cflags = $warnings $includes $optimization $definitions -std:c17 -experimental:c11atomics
 
 rule cc
@@ -26,11 +26,10 @@ rule xxd
 build include\font.ttf.h: xxd font\Hack-Regular.ttf
   name = font_hack
 
-build obj\view.obj        : cc src\view.c
+build obj\view.obj        : cc src\view.c | include\font.ttf.h
 build obj\comms.obj       : cc src\comms.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c
-build obj\render.obj      : cc src\render.c | include\font.ttf.h
 build obj\narwhal.obj     : cc src\narwhal.c
 
 build obj\bigverb.obj     : cc $sndkit\bigverb.c
@@ -41,7 +40,6 @@ build build\narwhal.exe | build\narwhal.ilk build\narwhal.pdb : link $
   obj\comms.obj       $
   obj\model.obj       $
   obj\sim.obj         $
-  obj\render.obj      $
   obj\narwhal.obj     $
   obj\bigverb.obj     $
   obj\env.obj         $

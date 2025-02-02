@@ -12,7 +12,6 @@
 
 #include "view.h"
 #include "sim.h"
-#include "render.h"
 #include "config.h"
 #include "comms.h"
 
@@ -23,8 +22,6 @@
 #define ATOM_Y 180
 
 static SDL_Window* window = NULL;
-static SDL_Renderer* renderer = NULL;
-static SDL_AudioStream* stream = NULL;
 static Index render_index = 0;
 static View view = {0};
 
@@ -190,6 +187,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   // free display IDs
   SDL_free(displays);
 
+  SDL_Renderer* renderer = NULL;
   const Bool window_status = SDL_CreateWindowAndRenderer(
       WINDOW_TITLE,         // window title
       scale * ATOM_X,       // width
@@ -230,12 +228,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
   sim_init();
-  view_init(&view, dpi_scaling);
-  render_init(renderer, &view);
-
-  // We can free the bitmaps once they've been uploaded to the GPU.
-  SDL_free(view.font_small.bitmap);
-  SDL_free(view.font_large.bitmap);
+  view_init(&view, renderer, dpi_scaling);
 
   // initialize the model
   model_init(&sim_history[0].model);
@@ -260,6 +253,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 #else
 
+  SDL_AudioStream* stream = NULL;
   SDL_AudioSpec spec;
   spec.channels = STEREO;
   spec.format = SDL_AUDIO_F32;
@@ -280,25 +274,13 @@ SDL_AppResult SDL_AppEvent(Void* state, SDL_Event* event)
 {
   UNUSED_PARAMETER(state);
 
-#if 0
-  // get active keyboard modifiers
-  SDL_Keymod keymod = SDL_GetModState();
-#endif
-
-  // calculate window size
-  V2S window_size = {0};
-  const Bool output_size_status = SDL_GetRenderOutputSize(renderer, &window_size.x, &window_size.y);
-  if (output_size_status == false) {
-    SDL_Log("Failed to get render output size: %s", SDL_GetError());
-  }
-
-  view_event(&view, event, window_size);
+  view_event(&view, event);
 
   if (event->type == SDL_EVENT_QUIT) {
     return SDL_APP_SUCCESS;
+  } else {
+    return SDL_APP_CONTINUE;
   }
-
-  return SDL_APP_CONTINUE;
 }
 
 SDL_AppResult SDL_AppIterate(Void* state)
@@ -321,6 +303,9 @@ SDL_AppResult SDL_AppIterate(Void* state)
   // get model pointer from index
   const ModelGraph* const model_graph = &sim_history[render_index];
 
+  // get dsp pointer from index
+  const DSPState* const dsp_state = &dsp_history[render_index];
+
   // update view
   view_step(&view);
 
@@ -329,7 +314,7 @@ SDL_AppResult SDL_AppIterate(Void* state)
   metrics.frame_time = (next_begin - frame_begin) * MEGA / frequency;
   metrics.frame_count = frame_count;
   metrics.render_index = render_index;
-  render_frame(model_graph, &metrics);
+  view_render(&view, model_graph, dsp_state, &metrics);
 
   // update time
   frame_begin = next_begin;

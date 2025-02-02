@@ -9,6 +9,7 @@
 #define SIM_HISTORY 0x20
 
 extern ModelGraph sim_history[SIM_HISTORY];
+extern DSPState dsp_history[SIM_HISTORY];
 
 // called from audio thread
 Void sim_init();

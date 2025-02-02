@@ -6,17 +6,9 @@
 
 #include <SDL3/SDL_events.h>
 #include <SDL3/SDL_asyncio.h>
-#include "prelude.h"
+#include <SDL3/SDL_render.h>
+#include "model.h"
 #include "linear_algebra.h"
-
-#define ASCII_X 16
-#define ASCII_Y 8
-#define ASCII_AREA (ASCII_X * ASCII_Y)
-#define MIN_CHAR '!'
-#define MAX_CHAR '~'
-#define PADDING 6
-#define PANEL_CHARACTERS 44
-#define OPERATOR_DESCRIPTION_LINES 3
 
 typedef enum Interaction {
   INTERACTION_NONE,
@@ -50,11 +42,17 @@ typedef enum EditMenuItem {
 
 typedef struct Font {
   V2S glyph;
-  Byte* bitmap;
+  SDL_Texture* texture;
 } Font;
+
+typedef struct Texture {
+  V2S dimensions;
+  SDL_Texture* texture;
+} Texture;
 
 typedef struct View {
 
+  SDL_Renderer* renderer;
   SDL_AsyncIOQueue* io_queue;
 
   Interaction interaction;
@@ -65,6 +63,9 @@ typedef struct View {
 
   Font font_small;
   Font font_large;
+  Texture waveforms[MODEL_RADIX];
+
+  F32 scale;
 
   // cursor position
   V2S cursor;
@@ -74,16 +75,13 @@ typedef struct View {
 
 } View;
 
-Void view_init(View* view, F32 scale);
-Void view_event(View* view, const SDL_Event* event, V2S window);
+typedef struct RenderMetrics {
+  U64 frame_time;       // in microseconds
+  U64 frame_count;      // frames elapsed since startup
+  Index render_index;   // index into history buffer
+} RenderMetrics;
+
+Void view_init(View* view, SDL_Renderer* renderer, F32 scale);
+Void view_event(View* view, const SDL_Event* event);
 Void view_step(View* view);
-
-// character position in atlas
-V2S view_atlas_coordinate(Char c);
-
-// validate character position in atlas
-Bool view_validate_atlas_coordinate(V2S c, V2S dimensions);
-
-S32 view_panel_width(const View* view);
-S32 view_menu_height(const View* view);
-S32 view_tile_size(const View* view);
+Void view_render(View* view, const ModelGraph* model_graph, const DSPState* dsp, const RenderMetrics* metrics);

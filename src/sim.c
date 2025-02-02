@@ -10,7 +10,6 @@
 #include "env.h"
 #include "bigverb.h"
 
-#define SIM_VOICES 0x200
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440
 #define REFERENCE_ROOT 33
@@ -64,6 +63,7 @@ typedef struct SamplerVoice {
 
 // history buffer
 ModelGraph sim_history[SIM_HISTORY] = {0};
+DSPState dsp_history[SIM_HISTORY] = {0};
 
 // palette
 Sound sim_palette[MODEL_RADIX] = {0};
@@ -269,18 +269,24 @@ static Void sim_step_model()
             SamplerVoice* const voice = &sim_sampler_voices[voice_index];
             Sound* const sound = &sim_palette[sound_index];
 
-            // initialize envelope
-            sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
-            sk_env_attack(&voice->envelope, curved_attack);
-            sk_env_hold(&voice->envelope, curved_hold);
-            sk_env_release(&voice->envelope, curved_release);
-            sk_env_tick(&voice->envelope, 1.f);
+            if (sound->samples) {
 
-            // initialize parameters
-            voice->frame = (offset * sound->frames) / MODEL_RADIX;
-            voice->sound = sound_index;
-            voice->pitch = pitch - MODEL_RADIX / 2;
-            voice->volume = (F32) velocity / MODEL_RADIX;
+              ASSERT(sound->frames > 0);
+
+              // initialize envelope
+              sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
+              sk_env_attack(&voice->envelope, curved_attack);
+              sk_env_hold(&voice->envelope, curved_hold);
+              sk_env_release(&voice->envelope, curved_release);
+              sk_env_tick(&voice->envelope, 1.f);
+
+              // initialize parameters
+              voice->frame = (offset * sound->frames) / MODEL_RADIX;
+              voice->sound = sound_index;
+              voice->pitch = pitch - MODEL_RADIX / 2;
+              voice->volume = (F32) velocity / MODEL_RADIX;
+
+            }
 
           }
         }
@@ -413,6 +419,9 @@ Void sim_step(F32* audio_out, Index frames)
     // the current model
     Model* const m = &sim_history[sim_head].model;
 
+    // the current dsp state
+    DSPState* const dsp_state = &dsp_history[slot];
+
     // process input messages
     while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
 
@@ -452,6 +461,22 @@ Void sim_step(F32* audio_out, Index frames)
 
       }
 
+    }
+
+    // write dsp visualization data
+    for (Index i = 0; i < SIM_VOICES; i++) {
+      const SamplerVoice* const voice = &sim_sampler_voices[i];
+      if (voice->sound != INDEX_NONE) {
+        dsp_state->voices[i].active = true;
+        dsp_state->voices[i].sound = voice->sound;
+        dsp_state->voices[i].frame = voice->frame;
+        dsp_state->voices[i].length = sim_palette[voice->sound].frames;
+      } else {
+        dsp_state->voices[i].active = false;
+        dsp_state->voices[i].frame = 0;
+        dsp_state->voices[i].length = 0;
+        dsp_state->voices[i].sound = INDEX_NONE;
+      }
     }
 
     // compute the audio for this period

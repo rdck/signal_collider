@@ -902,7 +902,6 @@ Void view_render(View* view, const ModelGraph* model_graph, const DSPState* dsp,
         .h = (F32) (sample_height - 2),
       };
       SDL_RenderFillRect(view->renderer, &destination);
-      SDL_Log("active");
     }
   }
 

@@ -894,8 +894,7 @@ Void view_render(View* view, const ModelGraph* model_graph, const DSPState* dsp,
   for (Index i = 0; i < SIM_VOICES; i++) {
     const DSPSamplerVoice* voice = &dsp->voices[i];
     if (voice->active) {
-      const S32 x = (voice->frame * view_panel_width(view)) / voice->length;
-      const F32 proportion = (F32) voice->frame / voice->length;
+      const F32 proportion = voice->frame / voice->length;
       const SDL_FRect destination = {
         .x = proportion * view_panel_width(view),
         .y = (F32) (sample_height * voice->sound + view_menu_height(view) + 1),

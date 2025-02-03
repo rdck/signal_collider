@@ -160,7 +160,7 @@ typedef struct ModelGraph {
 typedef struct DSPSamplerVoice {
   Bool active;
   Index sound;
-  Index frame;
+  F32 frame;
   Index length;
 } DSPSamplerVoice;
 

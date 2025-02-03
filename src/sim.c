@@ -1,14 +1,12 @@
+#define SK_ENV_PRIV
 #include <math.h>
 #include <SDL3/SDL_log.h>
-
 #include "sim.h"
 #include "config.h"
 #include "palette.h"
 #include "comms.h"
-
-#define SK_ENV_PRIV
-#include "env.h"
 #include "bigverb.h"
+#include "env.h"
 
 #define VOICE_DURATION 12000
 #define REFERENCE_TONE 440
@@ -52,6 +50,9 @@ typedef struct SamplerVoice {
 
   // sound index
   S32 sound;
+
+  // start time
+  S32 start;
 
   // relative pitch
   S32 pitch;
@@ -244,55 +245,53 @@ static Void sim_step_model()
       if (value.tag == VALUE_SAMPLER && bang) {
 
         const Index voice_index = pop_sampler_voice();
-        if (voice_index != INDEX_NONE) {
 
-          // parameter positions
-          const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 7))), INDEX_NONE);
-          const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
-          const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
-          const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
-          const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
-          const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
-          const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), MODEL_RADIX / 2);
+        // parameter positions
+        const S32 sound_index = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 7))), INDEX_NONE);
+        const S32 offset      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 6))), 0);
+        const S32 velocity    = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 5))), 0);
+        const S32 attack      = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 4))), 0);
+        const S32 hold        = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 3))), 0);
+        const S32 release     = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 2))), 0);
+        const S32 pitch       = read_literal(model_get(m, v2s_add(origin, v2s_scale(west, 1))), MODEL_RADIX / 2);
 
-          // curved values
-          const F32 curved_attack =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
-          const F32 curved_hold =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
-          const F32 curved_release =
-            sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
+        if (voice_index != INDEX_NONE && sound_index != INDEX_NONE) {
 
-          if (sound_index != INDEX_NONE) {
+          Sound* const sound = &sim_palette[sound_index];
+          if (sound->samples) {
+
+            ASSERT(sound->frames > 0);
 
             // voice to initialize
             SamplerVoice* const voice = &sim_sampler_voices[voice_index];
-            Sound* const sound = &sim_palette[sound_index];
 
-            if (sound->samples) {
+            // curved values
+            const F32 curved_attack =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * attack);
+            const F32 curved_hold =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * hold);
+            const F32 curved_release =
+              sim_envelope_coefficient * powf(SIM_EULER, sim_envelope_exponent * release);
 
-              ASSERT(sound->frames > 0);
+            // initialize envelope
+            sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
+            sk_env_attack(&voice->envelope, curved_attack);
+            sk_env_hold(&voice->envelope, curved_hold);
+            sk_env_release(&voice->envelope, curved_release);
+            sk_env_tick(&voice->envelope, 1.f);
 
-              // initialize envelope
-              sk_env_init(&voice->envelope, Config_AUDIO_SAMPLE_RATE);
-              sk_env_attack(&voice->envelope, curved_attack);
-              sk_env_hold(&voice->envelope, curved_hold);
-              sk_env_release(&voice->envelope, curved_release);
-              sk_env_tick(&voice->envelope, 1.f);
-
-              // initialize parameters
-              voice->frame = (offset * sound->frames) / MODEL_RADIX;
-              voice->sound = sound_index;
-              voice->pitch = pitch - MODEL_RADIX / 2;
-              voice->volume = (F32) velocity / MODEL_RADIX;
-
-            }
+            // initialize parameters
+            voice->start = offset;
+            voice->frame = 0;
+            voice->sound = sound_index;
+            voice->pitch = pitch - MODEL_RADIX / 2;
+            voice->volume = (F32) velocity / MODEL_RADIX;
 
           }
         }
       }
 
-      // process sampler event
+      // process midi event
       if (value.tag == VALUE_MIDI && bang) {
 
         // parameter values
@@ -335,40 +334,51 @@ static Void sim_step_synth_voice(Index voice_index, F32* out, Index frames)
   }
 }
 
+static F32 sim_sampler_voice_frame(const SamplerVoice* voice, Index length)
+{
+  const Index start = (voice->start * length) / MODEL_RADIX;
+  const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
+  const F32 head = start + (rate * voice->frame);
+  return fmodf(head, (F32) length);
+}
+
 static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
 {
   ASSERT(voice_index != INDEX_NONE);
   SamplerVoice* const voice = &sim_sampler_voices[voice_index];
   const Sound* const sound = &sim_palette[voice->sound];
 
-  // playback rate
-  const F32 rate = powf(SIM_TWELFTH_ROOT_TWO, (F32) voice->pitch);
-
   // We check this here because the palette can change.
-  if (sound->frames > 0) {
-    ASSERT(sound->samples);
+  if (sound->samples) {
+    ASSERT(sound->frames > 0);
     for (Index i = 0; i < frames; i++) {
+
       const F32 volume = sk_env_tick(&voice->envelope, 0) * voice->volume;
-      const F32 head = rate * (voice->frame + i);
-      F32 integral_f32;
-      const F32 fractional = modff(head, &integral_f32);
-      const Index integral = (Index) integral_f32;
-      if (integral < sound->frames - 1) {
-        const F32 lhs = f32_lerp(
-            sound->samples[STEREO * integral + 0],
-            sound->samples[STEREO * integral + 2],
-            fractional);
-        const F32 rhs = f32_lerp(
-            sound->samples[STEREO * integral + 1],
-            sound->samples[STEREO * integral + 3],
-            fractional);
-        out[STEREO * i + 0] += volume * lhs;
-        out[STEREO * i + 1] += volume * rhs;
-      }
+      const F32 playhead = sim_sampler_voice_frame(voice, sound->frames);
+
+      // decompose
+      F32 integral = 0.f;
+      const F32 fractional = modff(playhead, &integral);
+
+      Index left = (Index) integral;
+      left = MIN(left, sound->frames - 1);
+
+      const F32 lhs = f32_lerp(
+          sound->samples[STEREO * left + 0],
+          sound->samples[STEREO * left + 2],
+          fractional);
+      const F32 rhs = f32_lerp(
+          sound->samples[STEREO * left + 1],
+          sound->samples[STEREO * left + 3],
+          fractional);
+
+      out[STEREO * i + 0] += volume * lhs;
+      out[STEREO * i + 1] += volume * rhs;
+      voice->frame += 1;
+
     }
   }
 
-  voice->frame += frames;
   if (voice->envelope.mode == 0) {
     clear_sampler_voice(voice_index);
   }
@@ -467,10 +477,11 @@ Void sim_step(F32* audio_out, Index frames)
     for (Index i = 0; i < SIM_VOICES; i++) {
       const SamplerVoice* const voice = &sim_sampler_voices[i];
       if (voice->sound != INDEX_NONE) {
+        const Index length = sim_palette[voice->sound].frames;
         dsp_state->voices[i].active = true;
         dsp_state->voices[i].sound = voice->sound;
-        dsp_state->voices[i].frame = voice->frame;
-        dsp_state->voices[i].length = sim_palette[voice->sound].frames;
+        dsp_state->voices[i].frame = sim_sampler_voice_frame(voice, length);
+        dsp_state->voices[i].length = length;
       } else {
         dsp_state->voices[i].active = false;
         dsp_state->voices[i].frame = 0;

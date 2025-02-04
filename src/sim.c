@@ -360,16 +360,16 @@ static Void sim_step_sampler_voice(Index voice_index, F32* out, Index frames)
       F32 integral = 0.f;
       const F32 fractional = modff(playhead, &integral);
 
-      Index left = (Index) integral;
-      left = MIN(left, sound->frames - 1);
+      const Index src = (Index) integral;
+      const Index dst = (src + 1) % sound->frames;
 
       const F32 lhs = f32_lerp(
-          sound->samples[STEREO * left + 0],
-          sound->samples[STEREO * left + 2],
+          sound->samples[STEREO * src + 0],
+          sound->samples[STEREO * dst + 0],
           fractional);
       const F32 rhs = f32_lerp(
-          sound->samples[STEREO * left + 1],
-          sound->samples[STEREO * left + 3],
+          sound->samples[STEREO * src + 1],
+          sound->samples[STEREO * dst + 1],
           fractional);
 
       out[STEREO * i + 0] += volume * lhs;

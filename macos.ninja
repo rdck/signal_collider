@@ -6,6 +6,9 @@ dr_libs = vendor/dr_libs
 stb = vendor/stb
 handmade_math = vendor/handmade_math
 
+# names
+title = clavier
+
 # compiler flags
 warnings =
 includes = -I include -I $sdl/include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
@@ -29,17 +32,16 @@ build include/font.ttf.h: xxd font/Hack-Regular.ttf
 build obj/message.obj     : cc src/message.c
 build obj/model.obj       : cc src/model.c
 build obj/sim.obj         : cc src/sim.c
-build obj/render.obj      : cc src/render.c | include/font.ttf.h
-build obj/narwhal.obj     : cc src/narwhal.c
+build obj/$title.obj      : cc src/$title.c | include/font.ttf.h
 
 build obj/bigverb.obj     : cc $sndkit/bigverb.c
 build obj/env.obj         : cc $sndkit/env.c
 
-build build/narwhal.exe   : link $
+build build/$title.exe   : link $
   obj/message.obj     $
   obj/model.obj       $
   obj/sim.obj         $
   obj/render.obj      $
-  obj/narwhal.obj     $
+  obj/$title.obj      $
   obj/bigverb.obj     $
   obj/env.obj

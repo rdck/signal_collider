@@ -157,6 +157,7 @@ typedef struct ModelGraph {
   Graph graph;
 } ModelGraph;
 
+// @rdk: This shouldn't be defined here.
 typedef struct DSPSamplerVoice {
   Bool active;
   Index sound;
@@ -164,6 +165,7 @@ typedef struct DSPSamplerVoice {
   Index length;
 } DSPSamplerVoice;
 
+// @rdk: This shouldn't be defined here.
 typedef struct DSPState {
   DSPSamplerVoice voices[SIM_VOICES];
 } DSPState;

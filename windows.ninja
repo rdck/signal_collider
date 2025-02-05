@@ -26,6 +26,7 @@ rule xxd
 build include\font.ttf.h: xxd font\Hack-Regular.ttf
   name = font_hack
 
+build obj\layout.obj      : cc src\layout.c
 build obj\view.obj        : cc src\view.c | include\font.ttf.h
 build obj\comms.obj       : cc src\comms.c
 build obj\model.obj       : cc src\model.c
@@ -36,6 +37,7 @@ build obj\bigverb.obj     : cc $sndkit\bigverb.c
 build obj\env.obj         : cc $sndkit\env.c
 
 build build\narwhal.exe | build\narwhal.ilk build\narwhal.pdb : link $
+  obj\layout.obj      $
   obj\view.obj        $
   obj\comms.obj       $
   obj\model.obj       $

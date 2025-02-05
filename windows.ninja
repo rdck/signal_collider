@@ -6,6 +6,9 @@ dr_libs = vendor\dr_libs
 stb = vendor\stb
 handmade_math = vendor\handmade_math
 
+# names
+title = clavier
+
 # compiler flags
 warnings = -W4 -wd5105 -wd4996 -wd4200 -wd4152
 includes = -I include -I $sdl\include -I $gustavsson -I $dr_libs -I $stb -I $handmade_math -I $sndkit
@@ -26,21 +29,21 @@ rule xxd
 build include\font.ttf.h: xxd font\Hack-Regular.ttf
   name = font_hack
 
-build obj\view.obj        : cc src\view.c | include\font.ttf.h
+build obj\layout.obj      : cc src\layout.c
 build obj\comms.obj       : cc src\comms.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c
-build obj\narwhal.obj     : cc src\narwhal.c
+build obj\$title.obj     : cc src\$title.c | include\font.ttf.h
 
 build obj\bigverb.obj     : cc $sndkit\bigverb.c
 build obj\env.obj         : cc $sndkit\env.c
 
-build build\narwhal.exe | build\narwhal.ilk build\narwhal.pdb : link $
-  obj\view.obj        $
+build build\$title.exe | build\$title.ilk build\$title.pdb : link $
+  obj\layout.obj      $
   obj\comms.obj       $
   obj\model.obj       $
   obj\sim.obj         $
-  obj\narwhal.obj     $
+  obj\$title.obj      $
   obj\bigverb.obj     $
   obj\env.obj         $
   $sdl\VisualC\x64\Debug\SDL3.lib

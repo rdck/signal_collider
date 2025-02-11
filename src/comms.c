@@ -37,3 +37,20 @@ ControlMessage control_message_sound(S32 slot, Sound sound)
   message.sound.sound = sound;
   return message;
 }
+
+ControlMessage control_message_tempo(S32 tempo)
+{
+  ControlMessage message;
+  message.tag = CONTROL_MESSAGE_TEMPO;
+  message.tempo = tempo;
+  return message;
+}
+
+ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHistory secondary)
+{
+  ControlMessage message;
+  message.tag = CONTROL_MESSAGE_MEMORY_RESIZE;
+  message.resize.primary = primary;
+  message.resize.secondary = secondary;
+  return message;
+}

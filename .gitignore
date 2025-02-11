@@ -8,3 +8,4 @@
 .ninja_log
 /include/shader/
 /include/font.ttf.h
+/build

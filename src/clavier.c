@@ -11,6 +11,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_dialog.h>
 #include <SDL3/SDL_misc.h>
+#include <SDL3/SDL_stdinc.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/webaudio.h>
@@ -73,6 +74,7 @@ static Font font_small = {0};
 static Font font_large = {0};
 static Texture waveforms[MODEL_RADIX] = {0};
 
+static ProgramHistory program_history = {0};
 static UIState ui = {0};
 static RenderMetrics metrics = {0};
 
@@ -228,6 +230,20 @@ static Void SDLCALL clavier_audio(
 }
 
 #endif
+
+static ProgramHistory allocate_history(S32 length, V2S dimensions)
+{
+  ProgramHistory history;
+  history.dimensions = dimensions;
+  const S32 area = dimensions.x * dimensions.y;
+  history.register_file = SDL_calloc(length, sizeof(RegisterFile));
+  history.memory = SDL_calloc(length, area * sizeof(Value));
+  history.graph = SDL_calloc(length, GRAPH_FACTOR * area * sizeof(GraphEdge));
+  ASSERT(history.register_file);
+  ASSERT(history.memory);
+  ASSERT(history.graph);
+  return history;
+}
 
 static Void SDLCALL sample_chosen(Void* user_data, const Char* const* file_list, S32 filter)
 {
@@ -410,7 +426,7 @@ static S32 character_literal(Char c)
 static Void update_cursor(Direction d)
 {
   const V2S next = add_unit_vector(ui.cursor, d);
-  if (valid_point(next)) {
+  if (valid_point(program_history.dimensions, next)) {
     ui.cursor = next;
   }
 }
@@ -581,10 +597,19 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
-  sim_init();
+  const V2S dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
+  program_history = allocate_history(SIM_HISTORY, dimensions);
+  const ProgramHistory secondary = allocate_history(1, dimensions);
+  sim_init(program_history, secondary);
+
+  Model model = {
+    .dimensions = program_history.dimensions,
+    .register_file = program_history.register_file,
+    .memory = program_history.memory,
+  };
 
   // initialize the model
-  model_init(&sim_history[0].model);
+  model_init(&model);
 
   // tell the render thread about the first slot
   ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, 0);
@@ -625,23 +650,36 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F mouse)
 {
-  // get model pointer from index
-  const ModelGraph* const model_graph = &sim_history[render_index];
+  const Index area = program_history.dimensions.x * program_history.dimensions.y;
+  const Model model = {
+    .dimensions = program_history.dimensions,
+    .register_file = &program_history.register_file[render_index],
+    .memory = &program_history.memory[render_index * area],
+  };
 
   // get dsp pointer from index
   const DSPState* const dsp = &dsp_history[render_index];
+
+  // get graph pointer from index
+  const GraphEdge* const graph = &program_history.graph[render_index * GRAPH_FACTOR * area];
 
   const LayoutParameters layout_parameters = {
     .window = window_size,
     .font_small = font_small.glyph,
     .font_large = font_large.glyph,
     .mouse = mouse,
-    .model = &model_graph->model,
-    .graph = &model_graph->graph,
+    .model = &model,
+    .graph = graph,
     .dsp = dsp,
     .metrics = &metrics,
   };
   layout(draw, interaction, &ui, &layout_parameters);
+}
+
+static Void clear_text_interaction(UIState* ui)
+{
+  memset(ui->text, 0, sizeof(ui->text));
+  ui->text_head = 0;
 }
 
 static SDL_AppResult event_handler(const SDL_Event* event)
@@ -784,6 +822,18 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                       ui.interaction = INTERACTION_MENU_SELECT;
                     } break;
 
+                  case INTERACTION_TAG_MEMORY_DIMENSIONS:
+                    {
+                      clear_text_interaction(&ui);
+                      ui.interaction = INTERACTION_MEMORY_DIMENSIONS;
+                    } break;
+
+                  case INTERACTION_TAG_TEMPO:
+                    {
+                      clear_text_interaction(&ui);
+                      ui.interaction = INTERACTION_TEMPO;
+                    } break;
+
                 }
 
               }
@@ -889,6 +939,76 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                 }
                 ui.interaction = INTERACTION_NONE;
                 ui.menu = MENU_NONE;
+              }
+            } break;
+        }
+      } break;
+
+    case INTERACTION_MEMORY_DIMENSIONS:
+    case INTERACTION_TEMPO:
+      {
+        switch (event->type) {
+          case SDL_EVENT_KEY_DOWN:
+            {
+              switch (keycode) {
+                case SDLK_BACKSPACE:
+                  {
+                    if (ui.text_head > 0) {
+                      ui.text_head -= 1;
+                      ui.text[ui.text_head] = 0;
+                    }
+                  } break;
+                case SDLK_ESCAPE:
+                  {
+                    ui.interaction = INTERACTION_NONE;
+                  } break;
+                case SDLK_RETURN:
+                  {
+                    switch (ui.interaction) {
+                      case INTERACTION_MEMORY_DIMENSIONS:
+                        {
+                          // @rdk: I'm sure this is unsafe, somehow. Fix it later.
+                          Char* const xstr = ui.text;
+                          Char* const separator = SDL_strchr(ui.text, 'x');
+                          Char* const ystr = separator + 1;
+                          if (separator) {
+                            *separator = 0;
+                            const S32 x = SDL_atoi(xstr);
+                            const S32 y = SDL_atoi(ystr);
+                            if (x > 0 && y > 0) {
+                              const V2S dimensions = { x, y };
+                              program_history = allocate_history(SIM_HISTORY, dimensions);
+                              const ProgramHistory secondary = allocate_history(1, dimensions);
+                              ui.cursor.x = MIN(ui.cursor.x, x - 1);
+                              ui.cursor.y = MIN(ui.cursor.y, y - 1);
+                              ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                  &control_queue,
+                                  control_message_memory_resize(program_history, secondary));
+                            }
+                          }
+                        } break;
+                      case INTERACTION_TEMPO:
+                        {
+                          const S32 tempo = SDL_atoi(ui.text);
+                          if (tempo > 0) {
+                            ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                &control_queue,
+                                control_message_tempo(tempo));
+                          }
+                        } break;
+                    }
+                    ui.interaction = INTERACTION_NONE;
+                  } break;
+              }
+            } break;
+          case SDL_EVENT_TEXT_INPUT:
+            {
+              const Char* c = event->text.text;
+              // @rdk: This should limit text input based on context.
+              while (*c && ui.text_head < LAYOUT_TEXT_INPUT - 1) {
+                ui.text[ui.text_head] = *c;
+                ui.text_head += 1;
+                c += 1;
               }
             } break;
         }

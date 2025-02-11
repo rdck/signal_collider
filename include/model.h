@@ -15,9 +15,11 @@
 #include "rnd.h"
 
 // default grid size
-#define MODEL_X 0x40
-#define MODEL_Y 0x24
-#define GRAPH_EDGES (MODEL_X * MODEL_Y * 4)
+#define MODEL_DEFAULT_X 0x40
+#define MODEL_DEFAULT_Y 0x24
+
+// the maximum number of graph edges we expect per tile
+#define GRAPH_FACTOR 8
 
 // @rdk: This shouldn't be defined here.
 #define SIM_VOICES 0x200
@@ -54,6 +56,8 @@
 #define ATTRIBUTE_REGISTER "REGISTER"
 #define ATTRIBUTE_INDEX "INDEX"
 #define ATTRIBUTE_OUTPUT "OUTPUT"
+
+#define MODEL_INDEX(m, cx, cy) ((m)->memory[(m)->dimensions.x * (cy) + (cx)])
 
 // cardinal directions
 #define DIRECTION_NONE (-1)
@@ -116,14 +120,20 @@ typedef struct Value {
   S32 literal;
 } Value;
 
-// program state
-typedef struct Model {
+typedef struct RegisterFile {
   Index frame;                            // beat counter
   rnd_pcg_t rnd;                          // random number generator
   Value registers[MODEL_RADIX];           // register set
-  Value map[MODEL_Y][MODEL_X];            // program memory
+} RegisterFile;
+
+// @rdk: This can probably be replaced by the program history structure.
+typedef struct Model {
+  V2S dimensions;
+  RegisterFile* register_file;
+  Value* memory;
 } Model;
 
+#if 0
 // state stored on disk
 typedef struct ModelStorage {
   Byte signature[MODEL_SIGNATURE_BYTES];  // file signature
@@ -131,6 +141,7 @@ typedef struct ModelStorage {
   Value registers[MODEL_RADIX];           // register set
   Value map[MODEL_Y][MODEL_X];            // program memory
 } ModelStorage;
+#endif
 
 typedef enum GraphEdgeTag {
   GRAPH_EDGE_NONE,
@@ -147,15 +158,20 @@ typedef struct GraphEdge {
   const Char* attribute;
 } GraphEdge;
 
+#if 0
 typedef struct Graph {
+  Index capacity;
   Index head;
-  GraphEdge edges[GRAPH_EDGES];
+  GraphEdge* edges;
 } Graph;
+#endif
 
-typedef struct ModelGraph {
-  Model model;
-  Graph graph;
-} ModelGraph;
+typedef struct ProgramHistory {
+  V2S dimensions;
+  RegisterFile* register_file;
+  Value* memory;
+  GraphEdge* graph;
+} ProgramHistory;
 
 // @rdk: This shouldn't be defined here.
 typedef struct DSPSamplerVoice {
@@ -167,6 +183,7 @@ typedef struct DSPSamplerVoice {
 
 // @rdk: This shouldn't be defined here.
 typedef struct DSPState {
+  S32 tempo;
   DSPSamplerVoice voices[SIM_VOICES];
 } DSPState;
 
@@ -207,7 +224,7 @@ Bool is_operator(Value value);
 Value value_literal(S32 literal);
 
 // validate a coordinate
-Bool valid_point(V2S c);
+Bool valid_point(V2S d, V2S c);
 
 // construct a unit vector for a cardinal direction
 V2S unit_vector(Direction d);
@@ -226,4 +243,4 @@ Value model_get(const Model* m, V2S point);
 
 // evaluator
 Void model_init(Model* m);
-Void model_step(Model* m, Graph* graph);
+Void model_step(Model* m, GraphEdge* graph);

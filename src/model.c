@@ -164,10 +164,10 @@ Value value_literal(S32 literal)
   return out;
 }
 
-Bool valid_point(V2S c)
+Bool valid_point(V2S d, V2S c)
 {
-  const Bool x = c.x >= 0 && c.x < MODEL_X;
-  const Bool y = c.y >= 0 && c.y < MODEL_Y;
+  const Bool x = c.x >= 0 && c.x < d.x;
+  const Bool y = c.y >= 0 && c.y < d.y;
   return x && y;
 }
 
@@ -184,14 +184,15 @@ V2S add_unit_vector(V2S point, Direction d)
 
 Void model_init(Model* m)
 {
-  memset(m, 0, sizeof(*m));
-  rnd_pcg_seed(&m->rnd, 0u);
+  memset(m->memory, 0, m->dimensions.x * m->dimensions.y * sizeof(Value));
+  memset(m->register_file, 0, sizeof(RegisterFile));
+  rnd_pcg_seed(&m->register_file->rnd, 0u);
 }
 
 Value model_get(const Model* m, V2S point)
 {
-  if (valid_point(point)) {
-    return m->map[point.y][point.x];
+  if (valid_point(m->dimensions, point)) {
+    return MODEL_INDEX(m, point.x, point.y);
   } else {
     return value_none;
   }
@@ -199,8 +200,8 @@ Value model_get(const Model* m, V2S point)
 
 Void model_set(Model* m, V2S point, Value value)
 {
-  if (valid_point(point)) {
-    m->map[point.y][point.x] = value;
+  if (valid_point(m->dimensions, point)) {
+    MODEL_INDEX(m, point.x, point.y) = value;
   }
 }
 
@@ -212,14 +213,18 @@ S32 read_literal(Value v, S32 none)
 Void model_step(Model* m, Graph* g)
 {
   // clear graph
+  // @rdk: remember to change this when making graph size dynamic
   memset(g, 0, sizeof(*g));
+
+  // shorthand
+  RegisterFile* const rf = m->register_file;
 
   // clear bangs and pulses
   for (Index y = 0; y < MODEL_Y; y++) {
     for (Index x = 0; x < MODEL_X; x++) {
-      m->map[y][x].pulse = false;
-      if (m->map[y][x].tag == VALUE_BANG) {
-        m->map[y][x] = value_none;
+      MODEL_INDEX(m, x, y).pulse = false;
+      if (MODEL_INDEX(m, x, y).tag == VALUE_BANG) {
+        MODEL_INDEX(m, x, y) = value_none;
       }
     }
   }
@@ -229,7 +234,7 @@ Void model_step(Model* m, Graph* g)
     for (Index x = 0; x < MODEL_X; x++) {
 
       const V2S origin = { (S32) x, (S32) y };
-      const Value value = m->map[y][x];
+      const Value value = MODEL_INDEX(m, x, y);
 
       // cache adjacent coordinates and values
       Bool bang = false;
@@ -240,7 +245,7 @@ Void model_step(Model* m, Graph* g)
 
       // mark pulse
       if (value.powered == false && bang) {
-        m->map[y][x].pulse = true;
+        MODEL_INDEX(m, x, y).pulse = true;
       }
       
       if (value.powered || bang) {
@@ -371,9 +376,9 @@ Void model_step(Model* m, Graph* g)
               const Value input_rate = record_read(m, g, origin, v2s(2, 0), value.tag, ATTRIBUTE_RATE);
               const Value input_mod  = record_read(m, g, origin, v2s(1, 0), value.tag, ATTRIBUTE_DIVISOR);
               const S32 rate = read_literal(input_rate, 0) + 1;
-              if (m->frame % rate == 0) {
+              if (rf->frame % rate == 0) {
                 const S32 mod = map_zero(read_literal(input_mod, 0), MODEL_RADIX);
-                const Value output = value_literal((m->frame / rate) % mod);
+                const Value output = value_literal((rf->frame / rate) % mod);
                 record_write(m, g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, output);
               }
             } break;
@@ -384,7 +389,7 @@ Void model_step(Model* m, Graph* g)
               const Value input_mod  = record_read(m, g, origin, v2s(1, 0), value.tag, ATTRIBUTE_DIVISOR);
               const S32 rate = read_literal(input_rate, 0) + 1;
               const S32 mod = map_zero(read_literal(input_mod, 1), MODEL_RADIX);
-              const S32 output = (m->frame / rate) % mod;
+              const S32 output = (rf->frame / rate) % mod;
               if (output == 0) {
                 record_write(m, g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, value_bang);
               }
@@ -417,7 +422,7 @@ Void model_step(Model* m, Graph* g)
             {
               const Value reg = record_read(m, g, origin, v2s(1, 0), value.tag, ATTRIBUTE_REGISTER);
               if (reg.tag == VALUE_LITERAL) {
-                const Value v = m->registers[reg.literal];
+                const Value v = rf->registers[reg.literal];
                 record_write(m, g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, v);
               } else {
                 record_write(m, g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, value_none);
@@ -476,9 +481,9 @@ Void model_step(Model* m, Graph* g)
               const Value input_rate = record_read(m, g, origin, v2s(2, 0), value.tag, ATTRIBUTE_RATE);
               const Value input_mod = record_read(m, g, origin, v2s(1, 0), value.tag, ATTRIBUTE_DIVISOR);
               const S32 rate = read_literal(input_rate, 0) + 1;
-              if (m->frame % rate == 0) {
+              if (rf->frame % rate == 0) {
                 const S32 mod = map_zero(read_literal(input_mod, 0), MODEL_RADIX);
-                const Value output = value_literal(rnd_pcg_next(&m->rnd) % mod);
+                const Value output = value_literal(rnd_pcg_next(&rf->rnd) % mod);
                 record_write(m, g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, output);
               }
             } break;
@@ -488,7 +493,7 @@ Void model_step(Model* m, Graph* g)
               const Value set = record_read(m, g, origin, v2s(2, 0), value.tag, ATTRIBUTE_INPUT);
               const Value reg = record_read(m, g, origin, v2s(1, 0), value.tag, ATTRIBUTE_REGISTER);
               if (reg.tag == VALUE_LITERAL) {
-                m->registers[reg.literal] = set;
+                rf->registers[reg.literal] = set;
               }
             } break;
 
@@ -531,7 +536,7 @@ Void model_step(Model* m, Graph* g)
     }
   }
 
-  m->frame += 1;
+  rf->frame += 1;
 }
 
 #define RND_IMPLEMENTATION

@@ -6,7 +6,7 @@
 #include "model.h"
 #include "rectangle.h"
 
-#define LAYOUT_DRAW_RECTANGLES 0x1000
+#define LAYOUT_DRAW_RECTANGLES 0x8000
 #define LAYOUT_INTERACTION_RECTANGLES 0x1000
 #define LAYOUT_PANEL_CHARACTERS 40
 

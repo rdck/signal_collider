@@ -410,7 +410,8 @@ static S32 character_literal(Char c)
 static Void update_cursor(Direction d)
 {
   const V2S next = add_unit_vector(ui.cursor, d);
-  if (valid_point(next)) {
+  const V2S dimensions = { MODEL_X, MODEL_Y }; // @rdk: remember to synchronize this
+  if (valid_point(dimensions, next)) {
     ui.cursor = next;
   }
 }
@@ -583,8 +584,14 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
   sim_init();
 
+  const Model model = {
+    .dimensions = v2s(MODEL_X, MODEL_Y),
+    .register_file = register_history,
+    .memory = memory_history,
+  };
+
   // initialize the model
-  model_init(&sim_history[0].model);
+  model_init(&model);
 
   // tell the render thread about the first slot
   ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, 0);
@@ -625,19 +632,26 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F mouse)
 {
-  // get model pointer from index
-  const ModelGraph* const model_graph = &sim_history[render_index];
+  // @rdk: remember to synchronize this
+  const V2S dimensions = { MODEL_X, MODEL_Y };
+
+  const Model model = {
+    .dimensions = dimensions,
+    .register_file = &register_history[render_index],
+    .memory = &memory_history[render_index * dimensions.x * dimensions.y],
+  };
 
   // get dsp pointer from index
   const DSPState* const dsp = &dsp_history[render_index];
+  const Graph* const graph = &graph_history[render_index];
 
   const LayoutParameters layout_parameters = {
     .window = window_size,
     .font_small = font_small.glyph,
     .font_large = font_large.glyph,
     .mouse = mouse,
-    .model = &model_graph->model,
-    .graph = &model_graph->graph,
+    .model = &model,
+    .graph = graph,
     .dsp = dsp,
     .metrics = &metrics,
   };

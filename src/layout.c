@@ -411,7 +411,7 @@ Void layout(
   for (S32 y = 0; y < MODEL_Y; y++) {
     for (S32 x = 0; x < MODEL_X; x++) {
 
-      const Value value = model->map[y][x];
+      const Value value = MODEL_INDEX(model, x, y);
       const Char tag_character = representation_table[value.tag];
       const R2F area = map_tile(camera, tile_size, map_origin, v2s(x, y));
       const F32 padding = (tile_size - font_large.x) / 2.f; // assumes font is taller than wide
@@ -421,7 +421,7 @@ Void layout(
       };
 
       if (value.tag == VALUE_LITERAL) {
-        const S32 literal = model->map[y][x].literal;
+        const S32 literal = MODEL_INDEX(model, x, y).literal;
         const Char c = literal >= 10
           ? 'A' + (Char) literal - 10
           : '0' + (Char) literal;

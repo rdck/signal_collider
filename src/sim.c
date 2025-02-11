@@ -62,8 +62,10 @@ typedef struct SamplerVoice {
 
 } SamplerVoice;
 
-// history buffer
-ModelGraph sim_history[SIM_HISTORY] = {0};
+// history buffers
+Value* memory_history = NULL;
+RegisterFile register_history[SIM_HISTORY] = {0};
+Graph graph_history[SIM_HISTORY] = {0};
 DSPState dsp_history[SIM_HISTORY] = {0};
 
 // palette
@@ -177,9 +179,20 @@ static Void clear_sampler_voice(Index index)
 static Void sim_step_model()
 {
   // step model
-  ModelGraph* const model_graph = &sim_history[sim_head];
-  Model* const m = &model_graph->model;
-  model_step(m, &model_graph->graph);
+  // ModelGraph* const model_graph = &sim_history[sim_head];
+
+  // @rdk: remember to synchronize this
+  const V2S dimensions = { MODEL_X, MODEL_Y };
+
+  const Model model = {
+    .dimensions = v2s(MODEL_X, MODEL_Y),
+    .register_file = &register_history[sim_head],
+    .memory = &memory_history[sim_head * dimensions.x * dimensions.y],
+  };
+  const Model* const m = &model;
+  Graph* const graph = &graph_history[sim_head];
+
+  model_step(m, graph);
 
   // shorthand
   const V2S west = unit_vector(DIRECTION_WEST);
@@ -189,7 +202,7 @@ static Void sim_step_model()
     for (Index x = 0; x < MODEL_X; x++) {
 
       const V2S origin = { (S32) x, (S32) y };
-      const Value value = m->map[y][x];
+      const Value value = MODEL_INDEX(m, x, y);
 
       // check for adjacent bang
       Bool bang = false;
@@ -422,12 +435,30 @@ Void sim_step(F32* audio_out, Index frames)
     const Index slot = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
     ASSERT(slot != sentinel);
 
-    // copy model
-    memcpy(&sim_history[slot], &sim_history[sim_head], sizeof(sim_history[0]));
+    // @rdk: remember to synchronize this
+    const V2S dimensions = { MODEL_X, MODEL_Y };
+
+    // copy memory
+    Value* const memory_dst = &memory_history[slot * dimensions.x * dimensions.y];
+    Value* const memory_src = &memory_history[sim_head * dimensions.x * dimensions.y];
+    memcpy(memory_dst, memory_src, dimensions.x * dimensions.y * sizeof(Value));
+
+    // copy register file
+    memcpy(&register_history[slot], &register_history[sim_head], sizeof(RegisterFile));
+
+    // copy graph
+    memcpy(&graph_history[slot], &graph_history[sim_head], sizeof(Graph));
+
+    // update index
     sim_head = slot;
 
     // the current model
-    Model* const m = &sim_history[sim_head].model;
+    const Model model = {
+      .dimensions = dimensions,
+      .register_file = &register_history[sim_head],
+      .memory = memory_dst,
+    };
+    const Model* const m = &model;
 
     // the current dsp state
     DSPState* const dsp_state = &dsp_history[slot];
@@ -451,7 +482,7 @@ Void sim_step(F32* audio_out, Index frames)
         case CONTROL_MESSAGE_POWER:
           {
             const V2S c = message.power.point;
-            Value* const value = &m->map[c.y][c.x];
+            Value* const value = &MODEL_INDEX(m, c.x, c.y);
             if (is_operator(*value)) {
               value->powered = ! value->powered;
             }
@@ -531,6 +562,9 @@ Void sim_step(F32* audio_out, Index frames)
 
 Void sim_init()
 {
+  // allocate memory history buffer
+  memory_history = SDL_calloc(SIM_HISTORY, MODEL_X * MODEL_Y * sizeof(Value));
+
   // initialize midi subsystem
   platform_midi_init();
 

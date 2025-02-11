@@ -55,6 +55,8 @@
 #define ATTRIBUTE_INDEX "INDEX"
 #define ATTRIBUTE_OUTPUT "OUTPUT"
 
+#define MODEL_INDEX(m, cx, cy) ((m)->memory[(m)->dimensions.x * (cy) + (cx)])
+
 // cardinal directions
 #define DIRECTION_NONE (-1)
 typedef enum Direction {
@@ -116,14 +118,19 @@ typedef struct Value {
   S32 literal;
 } Value;
 
-// program state
-typedef struct Model {
+typedef struct RegisterFile {
   Index frame;                            // beat counter
   rnd_pcg_t rnd;                          // random number generator
   Value registers[MODEL_RADIX];           // register set
-  Value map[MODEL_Y][MODEL_X];            // program memory
+} RegisterFile;
+
+typedef struct Model {
+  V2S dimensions;
+  RegisterFile* register_file;
+  Value* memory;
 } Model;
 
+#if 0
 // state stored on disk
 typedef struct ModelStorage {
   Byte signature[MODEL_SIGNATURE_BYTES];  // file signature
@@ -131,6 +138,7 @@ typedef struct ModelStorage {
   Value registers[MODEL_RADIX];           // register set
   Value map[MODEL_Y][MODEL_X];            // program memory
 } ModelStorage;
+#endif
 
 typedef enum GraphEdgeTag {
   GRAPH_EDGE_NONE,
@@ -152,10 +160,12 @@ typedef struct Graph {
   GraphEdge edges[GRAPH_EDGES];
 } Graph;
 
+#if 0
 typedef struct ModelGraph {
   Model model;
   Graph graph;
 } ModelGraph;
+#endif
 
 // @rdk: This shouldn't be defined here.
 typedef struct DSPSamplerVoice {
@@ -207,7 +217,7 @@ Bool is_operator(Value value);
 Value value_literal(S32 literal);
 
 // validate a coordinate
-Bool valid_point(V2S c);
+Bool valid_point(V2S d, V2S c);
 
 // construct a unit vector for a cardinal direction
 V2S unit_vector(Direction d);

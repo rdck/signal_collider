@@ -1,7 +1,7 @@
 #pragma once
 
 // We only include this for the color struct. To reduce coupling with SDL, we
-// could use our own color / rectangle types until render time.
+// should really use our own color / rectangle types until render time.
 #include <SDL3/SDL_pixels.h>
 #include "model.h"
 #include "rectangle.h"
@@ -9,6 +9,7 @@
 #define LAYOUT_DRAW_RECTANGLES 0x8000
 #define LAYOUT_INTERACTION_RECTANGLES 0x1000
 #define LAYOUT_PANEL_CHARACTERS 40
+#define LAYOUT_TEXT_INPUT 64
 
 typedef enum TextureName {
   TEXTURE_NONE,
@@ -34,6 +35,8 @@ typedef enum Interaction {
   INTERACTION_MENU,
   INTERACTION_MENU_FINALIZE,
   INTERACTION_FILE_DIALOG,
+  INTERACTION_MEMORY_DIMENSIONS,
+  INTERACTION_TEMPO,
   INTERACTION_CARDINAL,
 } Interaction;
 
@@ -80,7 +83,12 @@ typedef struct UIState {
   // camera position, in tiles
   V2F camera;
 
+  // sound scrollbar
   F32 scroll;
+
+  // text interaction buffer
+  Char text[LAYOUT_TEXT_INPUT];
+  S32 text_head;
 
 } UIState;
 
@@ -107,6 +115,8 @@ typedef enum InteractionTag {
   INTERACTION_TAG_WAVEFORM,
   INTERACTION_TAG_SOUND_SCROLL,
   INTERACTION_TAG_MENU,
+  INTERACTION_TAG_MEMORY_DIMENSIONS,
+  INTERACTION_TAG_TEMPO,
   INTERACTION_TAG_CARDINAL,
 } InteractionTag;
 

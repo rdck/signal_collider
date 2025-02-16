@@ -11,6 +11,7 @@
 #include <SDL3/SDL_render.h>
 #include <SDL3/SDL_dialog.h>
 #include <SDL3/SDL_misc.h>
+#include <SDL3/SDL_stdinc.h>
 
 #ifdef __EMSCRIPTEN__
 #include <emscripten/webaudio.h>
@@ -584,7 +585,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
   sim_init();
 
-  const Model model = {
+  Model model = {
     .dimensions = v2s(MODEL_X, MODEL_Y),
     .register_file = register_history,
     .memory = memory_history,
@@ -656,6 +657,12 @@ static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F m
     .metrics = &metrics,
   };
   layout(draw, interaction, &ui, &layout_parameters);
+}
+
+static Void clear_text_interaction(UIState* ui)
+{
+  memset(ui->text, 0, sizeof(ui->text));
+  ui->text_head = 0;
 }
 
 static SDL_AppResult event_handler(const SDL_Event* event)
@@ -798,6 +805,18 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                       ui.interaction = INTERACTION_MENU_SELECT;
                     } break;
 
+                  case INTERACTION_TAG_MEMORY_DIMENSIONS:
+                    {
+                      clear_text_interaction(&ui);
+                      ui.interaction = INTERACTION_MEMORY_DIMENSIONS;
+                    } break;
+
+                  case INTERACTION_TAG_TEMPO:
+                    {
+                      clear_text_interaction(&ui);
+                      ui.interaction = INTERACTION_TEMPO;
+                    } break;
+
                 }
 
               }
@@ -903,6 +922,71 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                 }
                 ui.interaction = INTERACTION_NONE;
                 ui.menu = MENU_NONE;
+              }
+            } break;
+        }
+      } break;
+
+    case INTERACTION_MEMORY_DIMENSIONS:
+    case INTERACTION_TEMPO:
+      {
+        switch (event->type) {
+          case SDL_EVENT_KEY_DOWN:
+            {
+              switch (keycode) {
+                case SDLK_BACKSPACE:
+                  {
+                    if (ui.text_head > 0) {
+                      ui.text_head -= 1;
+                      ui.text[ui.text_head] = 0;
+                    }
+                  } break;
+                case SDLK_ESCAPE:
+                  {
+                    ui.interaction = INTERACTION_NONE;
+                  } break;
+                case SDLK_RETURN:
+                  {
+                    switch (ui.interaction) {
+                      case INTERACTION_MEMORY_DIMENSIONS:
+                        {
+                          // @rdk: I'm sure this is unsafe, somehow. Fix it later.
+                          Char* const xstr = ui.text;
+                          Char* const separator = SDL_strchr(ui.text, 'x');
+                          Char* const ystr = separator + 1;
+                          if (separator) {
+                            *separator = 0;
+                            const S32 x = SDL_atoi(xstr);
+                            const S32 y = SDL_atoi(ystr);
+                            if (x > 0 && y > 0) {
+                              ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                  &control_queue,
+                                  control_message_memory_resize(v2s(x, y)));
+                            }
+                          }
+                        } break;
+                      case INTERACTION_TEMPO:
+                        {
+                          const S32 tempo = SDL_atoi(ui.text);
+                          if (tempo > 0) {
+                            ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                &control_queue,
+                                control_message_tempo(tempo));
+                          }
+                        } break;
+                    }
+                    ui.interaction = INTERACTION_NONE;
+                  } break;
+              }
+            } break;
+          case SDL_EVENT_TEXT_INPUT:
+            {
+              const Char* c = event->text.text;
+              // @rdk: This should limit text input based on context.
+              while (*c && ui.text_head < LAYOUT_TEXT_INPUT - 1) {
+                ui.text[ui.text_head] = *c;
+                ui.text_head += 1;
+                c += 1;
               }
             } break;
         }

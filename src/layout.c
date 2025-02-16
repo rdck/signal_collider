@@ -6,6 +6,9 @@
 #define PADDING 6
 #define OPERATOR_DESCRIPTION_LINES 3
 
+#define MEMORY_CHARACTERS 16
+#define TEMPO_CHARACTERS 9
+
 typedef struct UIContext {
   V2F origin;
   V2S bounds;
@@ -31,6 +34,13 @@ static const SDL_Color color_input        = COLOR_STRUCTURE(0x60, 0x70, 0x80, 0x
 static const SDL_Color color_sample_slot  = COLOR_STRUCTURE(0x40, 0x40, 0x40, 0xFF);
 static const SDL_Color color_dialog       = COLOR_STRUCTURE(0xFF, 0xFF, 0xFF, 0x40);
 static const SDL_Color color_menu_highlight = COLOR_STRUCTURE(0x2A, 0x88, 0xAD, 0xFF);
+
+static Void reset_ui_context(UIContext* context, V2F origin, V2S bounds)
+{
+  context->origin = origin;
+  context->bounds = bounds;
+  context->cursor = v2s(0, 0);
+}
 
 static const SDL_Color sdl_color(U8 r, U8 g, U8 b, U8 a)
 {
@@ -215,6 +225,22 @@ static DrawRectangle draw_rectangle(R2F area, SDL_Color color, TextureDescriptio
   return r;
 }
 
+static InteractionRectangle interaction_none(R2F area)
+{
+  InteractionRectangle r;
+  r.tag = INTERACTION_NONE;
+  r.area = area;
+  return r;
+}
+
+static InteractionRectangle interaction_generic(InteractionTag tag, R2F area)
+{
+  InteractionRectangle r;
+  r.tag = tag;
+  r.area = area;
+  return r;
+}
+
 static InteractionRectangle interaction_map(R2F area)
 {
   InteractionRectangle r;
@@ -247,6 +273,14 @@ static InteractionRectangle interaction_menu(R2F area, Menu menu, S32 item)
   r.area = area;
   r.menu_item.menu = menu;
   r.menu_item.item = item;
+  return r;
+}
+
+static InteractionRectangle interaction_tempo(R2F area)
+{
+  InteractionRectangle r;
+  r.tag = INTERACTION_TAG_TEMPO;
+  r.area = area;
   return r;
 }
 
@@ -566,6 +600,85 @@ Void layout(
     draw_text(draw, &context, "\n", font_small);
   }
 
+  // draw bottom panel background
+  {
+    const R2F menu_panel = {
+      .origin = { 0.f, (F32) (window.y - menu_height) },
+      .size = { (F32) window.x, (F32) menu_height },
+    };
+    write_draw_rectangle(draw, draw_rectangle(menu_panel, color_panel, white));
+    write_interaction_rectangle(interaction, interaction_none(menu_panel));
+  }
+
+  // reset text drawing context
+  context.origin.x = PADDING;
+  context.origin.y = (F32) (window.y - menu_height + PADDING);
+  context.cursor = v2s(0, 0);
+
+  // draw memory dimensions
+  {
+    const R2F area = {
+      .origin = {
+        (F32) PADDING,
+        (F32) (window.y - menu_height + PADDING),
+      },
+      .size = {
+        (F32) (MEMORY_CHARACTERS * font_small.x),
+        (F32) font_small.y,
+      },
+    };
+    reset_ui_context(&context, area.origin, v2s(999, 999));
+    Char memory_buffer[MEMORY_CHARACTERS] = {0};
+    if (ui->interaction == INTERACTION_MEMORY_DIMENSIONS) {
+      SDL_snprintf(memory_buffer, MEMORY_CHARACTERS, "%s|", ui->text);
+      draw_text(draw, &context, memory_buffer, font_small);
+    } else {
+      SDL_snprintf(
+          memory_buffer,
+          TEMPO_CHARACTERS,
+          "%dx%d",
+          dsp->memory_dimensions.x,
+          dsp->memory_dimensions.y);
+      draw_text(draw, &context, memory_buffer, font_small);
+    }
+    write_interaction_rectangle(
+        interaction,
+        interaction_generic(INTERACTION_TAG_MEMORY_DIMENSIONS, area));
+  }
+
+  // draw tempo
+  {
+    const R2F area = {
+      .origin = {
+        (F32) (MEMORY_CHARACTERS * font_small.x + PADDING),
+        (F32) (window.y - menu_height + PADDING),
+      },
+      .size = {
+        (F32) (TEMPO_CHARACTERS * font_small.x),
+        (F32) font_small.y,
+      },
+    };
+    reset_ui_context(&context, area.origin, v2s(999, 999));
+    Char tempo_buffer[TEMPO_CHARACTERS] = {0};
+    if (ui->interaction == INTERACTION_TEMPO) {
+      SDL_snprintf(tempo_buffer, TEMPO_CHARACTERS, "%s|", ui->text);
+      draw_text(draw, &context, tempo_buffer, font_small);
+    } else {
+      SDL_snprintf(tempo_buffer, TEMPO_CHARACTERS, "%dbpm", dsp->tempo);
+      draw_text(draw, &context, tempo_buffer, font_small);
+    }
+    write_interaction_rectangle(interaction, interaction_tempo(area));
+  }
+
+  // draw menu background
+  {
+    const R2F menu_panel = {
+      .origin = { 0.f, 0.f },
+      .size = { (F32) window.x, (F32) menu_height },
+    };
+    write_draw_rectangle(draw, draw_rectangle(menu_panel, color_panel, white));
+  }
+
   // reset text drawing context
   context.origin.x = 0.f;
   context.origin.y = PADDING;
@@ -639,8 +752,8 @@ Void layout(
   }
 
   // reset text drawing context
-  context.origin.x = PADDING;
-  context.origin.y = (F32) (window.y - (4 * font_small.y + PADDING));
+  context.origin.x = (F32) (panel_width + PADDING);
+  context.origin.y = (F32) (menu_height + PADDING);
   context.cursor = v2s(0, 0);
 
   // draw debug metrics

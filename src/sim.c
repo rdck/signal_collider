@@ -184,12 +184,12 @@ static Void sim_step_model()
   // @rdk: remember to synchronize this
   const V2S dimensions = { MODEL_X, MODEL_Y };
 
-  const Model model = {
+  Model model = {
     .dimensions = v2s(MODEL_X, MODEL_Y),
     .register_file = &register_history[sim_head],
     .memory = &memory_history[sim_head * dimensions.x * dimensions.y],
   };
-  const Model* const m = &model;
+  Model* const m = &model;
   Graph* const graph = &graph_history[sim_head];
 
   model_step(m, graph);
@@ -453,12 +453,12 @@ Void sim_step(F32* audio_out, Index frames)
     sim_head = slot;
 
     // the current model
-    const Model model = {
+    Model model = {
       .dimensions = dimensions,
       .register_file = &register_history[sim_head],
       .memory = memory_dst,
     };
-    const Model* const m = &model;
+    Model* const m = &model;
 
     // the current dsp state
     DSPState* const dsp_state = &dsp_history[slot];
@@ -498,6 +498,19 @@ Void sim_step(F32* audio_out, Index frames)
             sim_palette[message.sound.slot] = message.sound.sound;
           } break;
 
+        case CONTROL_MESSAGE_TEMPO:
+          {
+            ASSERT(message.tempo > 0);
+            sim_tempo = message.tempo;
+          } break;
+
+        case CONTROL_MESSAGE_MEMORY_RESIZE:
+          {
+            ASSERT(message.dimensions.x > 0);
+            ASSERT(message.dimensions.y > 0);
+            SDL_Log("resize: %dx%d", message.dimensions.x, message.dimensions.y);
+          } break;
+
         default: { }
 
       }
@@ -505,6 +518,8 @@ Void sim_step(F32* audio_out, Index frames)
     }
 
     // write dsp visualization data
+    dsp_state->tempo = sim_tempo;
+    dsp_state->memory_dimensions = v2s(MODEL_X, MODEL_Y); // @rdk: remember to synchronize this
     for (Index i = 0; i < SIM_VOICES; i++) {
       const SamplerVoice* const voice = &sim_sampler_voices[i];
       if (voice->sound != INDEX_NONE) {

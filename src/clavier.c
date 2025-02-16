@@ -74,6 +74,7 @@ static Font font_small = {0};
 static Font font_large = {0};
 static Texture waveforms[MODEL_RADIX] = {0};
 
+static V2S dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
 static UIState ui = {0};
 static RenderMetrics metrics = {0};
 
@@ -411,7 +412,6 @@ static S32 character_literal(Char c)
 static Void update_cursor(Direction d)
 {
   const V2S next = add_unit_vector(ui.cursor, d);
-  const V2S dimensions = { MODEL_X, MODEL_Y }; // @rdk: remember to synchronize this
   if (valid_point(dimensions, next)) {
     ui.cursor = next;
   }
@@ -586,7 +586,7 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   sim_init();
 
   Model model = {
-    .dimensions = v2s(MODEL_X, MODEL_Y),
+    .dimensions = dimensions,
     .register_file = register_history,
     .memory = memory_history,
   };
@@ -633,18 +633,18 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F mouse)
 {
-  // @rdk: remember to synchronize this
-  const V2S dimensions = { MODEL_X, MODEL_Y };
-
+  const Index area = dimensions.x * dimensions.y;
   const Model model = {
     .dimensions = dimensions,
     .register_file = &register_history[render_index],
-    .memory = &memory_history[render_index * dimensions.x * dimensions.y],
+    .memory = &memory_history[render_index * area],
   };
 
   // get dsp pointer from index
   const DSPState* const dsp = &dsp_history[render_index];
-  const Graph* const graph = &graph_history[render_index];
+
+  // get graph pointer from index
+  const GraphEdge* const graph = &graph_history[render_index * GRAPH_FACTOR * area];
 
   const LayoutParameters layout_parameters = {
     .window = window_size,

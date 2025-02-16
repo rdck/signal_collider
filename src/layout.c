@@ -398,7 +398,7 @@ Void layout(
     const LayoutParameters* parameters)
 {
   // shorthand
-  const Graph* const graph = parameters->graph;
+  const GraphEdge* const graph = parameters->graph;
   const Model* const model = parameters->model;
   const RenderMetrics* const metrics = parameters->metrics;
   const DSPState* const dsp = parameters->dsp;
@@ -430,9 +430,11 @@ Void layout(
     .name = TEXTURE_WHITE,
   };
 
+  const Index graph_size = GRAPH_FACTOR * model->dimensions.x * model->dimensions.y;
+
   // draw graph highlights
-  for (Index i = 0; i < graph->head; i++) {
-    const GraphEdge edge = graph->edges[i];
+  for (Index i = 0; i < graph_size; i++) {
+    const GraphEdge edge = graph[i];
     if (edge.tag == GRAPH_EDGE_INPUT) {
       const R2F area = map_tile(camera, tile_size, map_origin, edge.target);
       write_draw_rectangle(
@@ -442,8 +444,8 @@ Void layout(
   }
 
   // draw model
-  for (S32 y = 0; y < MODEL_Y; y++) {
-    for (S32 x = 0; x < MODEL_X; x++) {
+  for (S32 y = 0; y < model->dimensions.y; y++) {
+    for (S32 x = 0; x < model->dimensions.x; x++) {
 
       const Value value = MODEL_INDEX(model, x, y);
       const Char tag_character = representation_table[value.tag];
@@ -587,8 +589,8 @@ Void layout(
 
   // draw input edges
   Index inputs = 0;
-  for (Index i = 0; i < graph->head; i++) {
-    const GraphEdge edge = graph->edges[i];
+  for (Index i = 0; i < graph_size; i++) {
+    const GraphEdge edge = graph[i];
     if (edge.tag == GRAPH_EDGE_INPUT && v2s_equal(edge.target, ui->cursor)) {
       SDL_snprintf(buffer, LAYOUT_PANEL_CHARACTERS, "%s for %s\n", edge.attribute, noun_table[edge.cause]);
       draw_text(draw, &context, buffer, font_small);

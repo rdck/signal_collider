@@ -9,7 +9,7 @@
 #define SIM_HISTORY 0x20
 
 extern Value* memory_history;
-extern Graph graph_history[SIM_HISTORY];
+extern GraphEdge* graph_history;
 extern RegisterFile register_history[SIM_HISTORY];
 extern DSPState dsp_history[SIM_HISTORY];
 

@@ -15,9 +15,11 @@
 #include "rnd.h"
 
 // default grid size
-#define MODEL_X 0x40
-#define MODEL_Y 0x24
-#define GRAPH_EDGES (MODEL_X * MODEL_Y * 4)
+#define MODEL_DEFAULT_X 0x40
+#define MODEL_DEFAULT_Y 0x24
+
+// the maximum number of graph edges we expect per tile
+#define GRAPH_FACTOR 8
 
 // @rdk: This shouldn't be defined here.
 #define SIM_VOICES 0x200
@@ -155,16 +157,12 @@ typedef struct GraphEdge {
   const Char* attribute;
 } GraphEdge;
 
-typedef struct Graph {
-  Index head;
-  GraphEdge edges[GRAPH_EDGES];
-} Graph;
-
 #if 0
-typedef struct ModelGraph {
-  Model model;
-  Graph graph;
-} ModelGraph;
+typedef struct Graph {
+  Index capacity;
+  Index head;
+  GraphEdge* edges;
+} Graph;
 #endif
 
 // @rdk: This shouldn't be defined here.
@@ -238,4 +236,4 @@ Value model_get(const Model* m, V2S point);
 
 // evaluator
 Void model_init(Model* m);
-Void model_step(Model* m, Graph* graph);
+Void model_step(Model* m, GraphEdge* graph);

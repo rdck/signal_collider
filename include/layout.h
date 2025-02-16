@@ -104,7 +104,7 @@ typedef struct LayoutParameters {
   V2S font_large;
   V2F mouse;
   const Model* model;
-  const Graph* graph;
+  const GraphEdge* graph;
   const DSPState* dsp;
   const RenderMetrics* metrics;
 } LayoutParameters;

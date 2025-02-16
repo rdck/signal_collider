@@ -64,8 +64,8 @@ typedef struct SamplerVoice {
 
 // history buffers
 Value* memory_history = NULL;
+GraphEdge* graph_history = NULL;
 RegisterFile register_history[SIM_HISTORY] = {0};
-Graph graph_history[SIM_HISTORY] = {0};
 DSPState dsp_history[SIM_HISTORY] = {0};
 
 // palette
@@ -84,6 +84,7 @@ static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;
 static S32 sim_tempo = 80;
+static V2S sim_dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -178,28 +179,23 @@ static Void clear_sampler_voice(Index index)
 
 static Void sim_step_model()
 {
-  // step model
-  // ModelGraph* const model_graph = &sim_history[sim_head];
-
-  // @rdk: remember to synchronize this
-  const V2S dimensions = { MODEL_X, MODEL_Y };
-
+  const Index area = sim_dimensions.x * sim_dimensions.y;
   Model model = {
-    .dimensions = v2s(MODEL_X, MODEL_Y),
+    .dimensions = sim_dimensions,
     .register_file = &register_history[sim_head],
-    .memory = &memory_history[sim_head * dimensions.x * dimensions.y],
+    .memory = &memory_history[sim_head * area],
   };
   Model* const m = &model;
-  Graph* const graph = &graph_history[sim_head];
 
-  model_step(m, graph);
+  GraphEdge* const graph_root = &graph_history[sim_head * GRAPH_FACTOR * area];
+  model_step(m, graph_root);
 
   // shorthand
   const V2S west = unit_vector(DIRECTION_WEST);
 
   // process synth events
-  for (Index y = 0; y < MODEL_Y; y++) {
-    for (Index x = 0; x < MODEL_X; x++) {
+  for (Index y = 0; y < sim_dimensions.y; y++) {
+    for (Index x = 0; x < sim_dimensions.x; x++) {
 
       const V2S origin = { (S32) x, (S32) y };
       const Value value = MODEL_INDEX(m, x, y);
@@ -435,26 +431,27 @@ Void sim_step(F32* audio_out, Index frames)
     const Index slot = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
     ASSERT(slot != sentinel);
 
-    // @rdk: remember to synchronize this
-    const V2S dimensions = { MODEL_X, MODEL_Y };
+    const Index area = sim_dimensions.x * sim_dimensions.y;
 
     // copy memory
-    Value* const memory_dst = &memory_history[slot * dimensions.x * dimensions.y];
-    Value* const memory_src = &memory_history[sim_head * dimensions.x * dimensions.y];
-    memcpy(memory_dst, memory_src, dimensions.x * dimensions.y * sizeof(Value));
+    Value* const memory_dst = &memory_history[slot * area];
+    Value* const memory_src = &memory_history[sim_head * area];
+    memcpy(memory_dst, memory_src, area * sizeof(Value));
 
     // copy register file
     memcpy(&register_history[slot], &register_history[sim_head], sizeof(RegisterFile));
 
     // copy graph
-    memcpy(&graph_history[slot], &graph_history[sim_head], sizeof(Graph));
+    GraphEdge* const graph_dst = &graph_history[slot * GRAPH_FACTOR * area];
+    GraphEdge* const graph_src = &graph_history[sim_head * GRAPH_FACTOR * area];
+    memcpy(graph_dst, graph_src, GRAPH_FACTOR * area * sizeof(GraphEdge));
 
     // update index
     sim_head = slot;
 
     // the current model
     Model model = {
-      .dimensions = dimensions,
+      .dimensions = sim_dimensions,
       .register_file = &register_history[sim_head],
       .memory = memory_dst,
     };
@@ -519,7 +516,7 @@ Void sim_step(F32* audio_out, Index frames)
 
     // write dsp visualization data
     dsp_state->tempo = sim_tempo;
-    dsp_state->memory_dimensions = v2s(MODEL_X, MODEL_Y); // @rdk: remember to synchronize this
+    dsp_state->memory_dimensions = sim_dimensions;
     for (Index i = 0; i < SIM_VOICES; i++) {
       const SamplerVoice* const voice = &sim_sampler_voices[i];
       if (voice->sound != INDEX_NONE) {
@@ -578,7 +575,14 @@ Void sim_step(F32* audio_out, Index frames)
 Void sim_init()
 {
   // allocate memory history buffer
-  memory_history = SDL_calloc(SIM_HISTORY, MODEL_X * MODEL_Y * sizeof(Value));
+  memory_history = SDL_calloc(
+      SIM_HISTORY,
+      sim_dimensions.x * sim_dimensions.y * sizeof(Value));
+
+  // allocate graph history buffer
+  graph_history = SDL_calloc(
+      SIM_HISTORY,
+      GRAPH_FACTOR * sim_dimensions.x * sim_dimensions.y * sizeof(GraphEdge));
 
   // initialize midi subsystem
   platform_midi_init();

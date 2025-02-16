@@ -535,7 +535,7 @@ Void layout(
           .x = proportion * panel_width,
           .y = (F32) (sample_stride * voice->sound + menu_height - scroll + 1),
         },
-        .size = { 1.f, (F32) (sample_height) },
+        .size = { 3.f, (F32) (sample_height) },
       };
       write_draw_rectangle(
           draw,

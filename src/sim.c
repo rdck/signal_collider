@@ -63,13 +63,13 @@ typedef struct SamplerVoice {
 } SamplerVoice;
 
 // history buffers
-Value* memory_history = NULL;
-GraphEdge* graph_history = NULL;
-RegisterFile register_history[SIM_HISTORY] = {0};
 DSPState dsp_history[SIM_HISTORY] = {0};
 
 // palette
-Sound sim_palette[MODEL_RADIX] = {0};
+static Sound sim_palette[MODEL_RADIX] = {0};
+
+// history pointers
+static ProgramHistory sim_history = {0};
 
 // index into model history
 static Index sim_head = 0;
@@ -182,12 +182,12 @@ static Void sim_step_model()
   const Index area = sim_dimensions.x * sim_dimensions.y;
   Model model = {
     .dimensions = sim_dimensions,
-    .register_file = &register_history[sim_head],
-    .memory = &memory_history[sim_head * area],
+    .register_file = &sim_history.register_file[sim_head],
+    .memory = &sim_history.memory[sim_head * area],
   };
   Model* const m = &model;
 
-  GraphEdge* const graph_root = &graph_history[sim_head * GRAPH_FACTOR * area];
+  GraphEdge* const graph_root = &sim_history.graph[sim_head * GRAPH_FACTOR * area];
   model_step(m, graph_root);
 
   // shorthand
@@ -434,16 +434,16 @@ Void sim_step(F32* audio_out, Index frames)
     const Index area = sim_dimensions.x * sim_dimensions.y;
 
     // copy memory
-    Value* const memory_dst = &memory_history[slot * area];
-    Value* const memory_src = &memory_history[sim_head * area];
+    Value* const memory_dst = &sim_history.memory[slot * area];
+    Value* const memory_src = &sim_history.memory[sim_head * area];
     memcpy(memory_dst, memory_src, area * sizeof(Value));
 
     // copy register file
-    memcpy(&register_history[slot], &register_history[sim_head], sizeof(RegisterFile));
+    memcpy(&sim_history.register_file[slot], &sim_history.register_file[sim_head], sizeof(RegisterFile));
 
     // copy graph
-    GraphEdge* const graph_dst = &graph_history[slot * GRAPH_FACTOR * area];
-    GraphEdge* const graph_src = &graph_history[sim_head * GRAPH_FACTOR * area];
+    GraphEdge* const graph_dst = &sim_history.graph[slot * GRAPH_FACTOR * area];
+    GraphEdge* const graph_src = &sim_history.graph[sim_head * GRAPH_FACTOR * area];
     memcpy(graph_dst, graph_src, GRAPH_FACTOR * area * sizeof(GraphEdge));
 
     // update index
@@ -452,7 +452,7 @@ Void sim_step(F32* audio_out, Index frames)
     // the current model
     Model model = {
       .dimensions = sim_dimensions,
-      .register_file = &register_history[sim_head],
+      .register_file = &sim_history.register_file[sim_head],
       .memory = memory_dst,
     };
     Model* const m = &model;
@@ -572,17 +572,9 @@ Void sim_step(F32* audio_out, Index frames)
   }
 }
 
-Void sim_init()
+Void sim_init(ProgramHistory history)
 {
-  // allocate memory history buffer
-  memory_history = SDL_calloc(
-      SIM_HISTORY,
-      sim_dimensions.x * sim_dimensions.y * sizeof(Value));
-
-  // allocate graph history buffer
-  graph_history = SDL_calloc(
-      SIM_HISTORY,
-      GRAPH_FACTOR * sim_dimensions.x * sim_dimensions.y * sizeof(GraphEdge));
+  sim_history = history;
 
   // initialize midi subsystem
   platform_midi_init();

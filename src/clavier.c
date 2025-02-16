@@ -74,7 +74,7 @@ static Font font_small = {0};
 static Font font_large = {0};
 static Texture waveforms[MODEL_RADIX] = {0};
 
-static V2S dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
+static ProgramHistory program_history = {0};
 static UIState ui = {0};
 static RenderMetrics metrics = {0};
 
@@ -230,6 +230,20 @@ static Void SDLCALL clavier_audio(
 }
 
 #endif
+
+static ProgramHistory allocate_history(V2S dimensions)
+{
+  ProgramHistory history;
+  history.dimensions = dimensions;
+  const S32 area = dimensions.x * dimensions.y;
+  history.register_file = SDL_calloc(SIM_HISTORY, sizeof(RegisterFile));
+  history.memory = SDL_calloc(SIM_HISTORY, area * sizeof(Value));
+  history.graph = SDL_calloc(SIM_HISTORY, GRAPH_FACTOR * area * sizeof(GraphEdge));
+  ASSERT(history.register_file);
+  ASSERT(history.memory);
+  ASSERT(history.graph);
+  return history;
+}
 
 static Void SDLCALL sample_chosen(Void* user_data, const Char* const* file_list, S32 filter)
 {
@@ -412,7 +426,7 @@ static S32 character_literal(Char c)
 static Void update_cursor(Direction d)
 {
   const V2S next = add_unit_vector(ui.cursor, d);
-  if (valid_point(dimensions, next)) {
+  if (valid_point(program_history.dimensions, next)) {
     ui.cursor = next;
   }
 }
@@ -583,12 +597,13 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
-  sim_init();
+  program_history = allocate_history(v2s(MODEL_DEFAULT_X, MODEL_DEFAULT_Y));
+  sim_init(program_history);
 
   Model model = {
-    .dimensions = dimensions,
-    .register_file = register_history,
-    .memory = memory_history,
+    .dimensions = program_history.dimensions,
+    .register_file = program_history.register_file,
+    .memory = program_history.memory,
   };
 
   // initialize the model
@@ -633,18 +648,18 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
 
 static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F mouse)
 {
-  const Index area = dimensions.x * dimensions.y;
+  const Index area = program_history.dimensions.x * program_history.dimensions.y;
   const Model model = {
-    .dimensions = dimensions,
-    .register_file = &register_history[render_index],
-    .memory = &memory_history[render_index * area],
+    .dimensions = program_history.dimensions,
+    .register_file = &program_history.register_file[render_index],
+    .memory = &program_history.memory[render_index * area],
   };
 
   // get dsp pointer from index
   const DSPState* const dsp = &dsp_history[render_index];
 
   // get graph pointer from index
-  const GraphEdge* const graph = &graph_history[render_index * GRAPH_FACTOR * area];
+  const GraphEdge* const graph = &program_history.graph[render_index * GRAPH_FACTOR * area];
 
   const LayoutParameters layout_parameters = {
     .window = window_size,

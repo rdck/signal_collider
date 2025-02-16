@@ -165,6 +165,13 @@ typedef struct Graph {
 } Graph;
 #endif
 
+typedef struct ProgramHistory {
+  V2S dimensions;
+  RegisterFile* register_file;
+  Value* memory;
+  GraphEdge* graph;
+} ProgramHistory;
+
 // @rdk: This shouldn't be defined here.
 typedef struct DSPSamplerVoice {
   Bool active;

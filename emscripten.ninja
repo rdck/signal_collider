@@ -33,6 +33,7 @@ rule copy
 build include\font.ttf.h: xxd font\Hack-Regular.ttf
   name = font_hack
 
+build obj\layout.obj      : cc src\layout.c
 build obj\comms.obj       : cc src\comms.c
 build obj\model.obj       : cc src\model.c
 build obj\sim.obj         : cc src\sim.c
@@ -42,6 +43,7 @@ build obj\bigverb.obj     : cc $sndkit\bigverb.c
 build obj\env.obj         : cc $sndkit\env.c
 
 build build\$title.js | build\$title.aw.js build\$title.ww.js build\$title.wasm : link $
+  obj\layout.obj      $
   obj\comms.obj       $
   obj\model.obj       $
   obj\sim.obj         $

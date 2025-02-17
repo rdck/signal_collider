@@ -497,7 +497,23 @@ Void layout(
   // draw map cursor highlight
   {
     const R2F area = map_tile(camera, ui->zoom, tile_size, map_origin, map_pixels, ui->cursor);
-    write_draw_rectangle(draw, draw_rectangle(area, color_cursor, white));
+    R2F line;
+
+    line.origin = area.origin;
+    line.size = v2f(3.f, area.size.y);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = v2f_add(area.origin, v2f(area.size.x, 0.f));
+    line.size = v2f(3.f, area.size.y);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = v2f_add(area.origin, v2f(0.f, area.size.y));
+    line.size = v2f(area.size.x + 3.f, 3.f);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = area.origin;
+    line.size = v2f(area.size.x + 3.f, 3.f);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
   }
 
   // draw sample panel background

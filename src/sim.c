@@ -85,6 +85,7 @@ static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;
 static S32 sim_tempo = 80;
+static Bool sim_pause = false;
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -547,6 +548,11 @@ Void sim_step(F32* audio_out, Index frames)
           model_init(&model);
         } break;
 
+      case CONTROL_MESSAGE_PAUSE:
+        {
+          sim_pause = ! sim_pause;
+        } break;
+
       default: { }
 
     }
@@ -559,7 +565,7 @@ Void sim_step(F32* audio_out, Index frames)
   while (elapsed < frames) {
     const Index residue = sim_frame % period;
     const Index delta = MIN(period - residue, frames - elapsed);
-    if (residue == 0) {
+    if (sim_pause == false && residue == 0) {
       Model model = {
         .dimensions = sim_history.dimensions,
         .register_file = next.register_file,

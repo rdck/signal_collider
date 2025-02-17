@@ -32,6 +32,7 @@ typedef enum ControlMessageTag {
   CONTROL_MESSAGE_TEMPO,
   CONTROL_MESSAGE_MEMORY_RESIZE,
   CONTROL_MESSAGE_CLEAR,
+  CONTROL_MESSAGE_PAUSE,
   CONTROL_MESSAGE_CARDINAL,
 } ControlMessageTag;
 
@@ -46,12 +47,12 @@ typedef struct ControlMessage {
   };
 } ControlMessage;
 
+ControlMessage control_message_generic(ControlMessageTag tag);
 ControlMessage control_message_write(V2S point, Value value);
 ControlMessage control_message_power(V2S point);
 ControlMessage control_message_sound(S32 slot, Sound sound);
 ControlMessage control_message_tempo(S32 tempo);
 ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHistory secondary);
-ControlMessage control_message_clear();
 
 #define ATOMIC_QUEUE_ELEMENT Index
 #define ATOMIC_QUEUE_INTERFACE

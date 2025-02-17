@@ -786,8 +786,13 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                 case SDLK_DOWN:
                   update_cursor(DIRECTION_SOUTH);
                   break;
-                case SDLK_SPACE:
+                case SDLK_RETURN:
                   ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, control_message_power(ui.cursor));
+                  break;
+                case SDLK_SPACE:
+                  ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                      &control_queue,
+                      control_message_generic(CONTROL_MESSAGE_PAUSE));
                   break;
                 case SDLK_BACKSPACE:
                   input_value(ui.cursor, value_none);
@@ -934,7 +939,7 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                             {
                               ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
                                   &control_queue,
-                                  control_message_clear());
+                                  control_message_generic(CONTROL_MESSAGE_CLEAR));
                             } break;
                         }
                       } break;

@@ -126,6 +126,7 @@ typedef struct RegisterFile {
   Value registers[MODEL_RADIX];           // register set
 } RegisterFile;
 
+// @rdk: This can probably be replaced by the program history structure.
 typedef struct Model {
   V2S dimensions;
   RegisterFile* register_file;

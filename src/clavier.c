@@ -979,6 +979,8 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                               const V2S dimensions = { x, y };
                               program_history = allocate_history(SIM_HISTORY, dimensions);
                               const ProgramHistory secondary = allocate_history(1, dimensions);
+                              ui.cursor.x = MIN(ui.cursor.x, x - 1);
+                              ui.cursor.y = MIN(ui.cursor.y, y - 1);
                               ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
                                   &control_queue,
                                   control_message_memory_resize(program_history, secondary));

@@ -442,7 +442,7 @@ Void sim_step(F32* audio_out, Index frames)
   }
 
   const ProgramHistory last = lookup_history_index(sim_head);
-  const ProgramHistory next = lookup_history_index(nxt_head);
+  ProgramHistory next = lookup_history_index(nxt_head);
   const Index area = sim_history.dimensions.x * sim_history.dimensions.y;
 
   if (last.memory != next.memory) {
@@ -450,13 +450,6 @@ Void sim_step(F32* audio_out, Index frames)
     memcpy(next.memory        , last.memory         , area * sizeof(Value));
     memcpy(next.graph         , last.graph          , GRAPH_FACTOR * area * sizeof(GraphEdge));
   }
-
-  // the current model
-  Model model = {
-    .dimensions = sim_history.dimensions,
-    .register_file = next.register_file,
-    .memory = next.memory,
-  };
 
   // the current dsp state
   DSPState backup_dsp = {0};
@@ -475,11 +468,21 @@ Void sim_step(F32* audio_out, Index frames)
 
       case CONTROL_MESSAGE_WRITE:
         {
+          Model model = {
+            .dimensions = sim_history.dimensions,
+            .register_file = next.register_file,
+            .memory = next.memory,
+          };
           model_set(&model, message.write.point, message.write.value);
         } break;
 
       case CONTROL_MESSAGE_POWER:
         {
+          Model model = {
+            .dimensions = sim_history.dimensions,
+            .register_file = next.register_file,
+            .memory = next.memory,
+          };
           const V2S c = message.power.point;
           Value* const value = &MODEL_INDEX(&model, c.x, c.y);
           if (is_operator(*value)) {
@@ -489,8 +492,7 @@ Void sim_step(F32* audio_out, Index frames)
 
       case CONTROL_MESSAGE_SOUND:
         {
-          // @rdk: We should send a message back to the render thread to free
-          // unused audio data.
+          // @rdk: Don't forget to send a message back to the render thread.
           ASSERT(message.sound.slot >= 0);
           ASSERT(message.sound.sound.frames > 0);
           ASSERT(message.sound.sound.samples);
@@ -505,8 +507,34 @@ Void sim_step(F32* audio_out, Index frames)
 
       case CONTROL_MESSAGE_MEMORY_RESIZE:
         {
-          // ASSERT(message.resize.dimensions.x > 0);
-          // ASSERT(message.resize.dimensions.y > 0);
+          // @rdk: Don't forget to send a message back to the render thread.
+          const ResizeMessage* const msg = &message.resize;
+          const ProgramHistory previous = next;
+          ASSERT(msg->primary.dimensions.x > 0);
+          ASSERT(msg->primary.dimensions.y > 0);
+          ASSERT(v2s_equal(msg->primary.dimensions, msg->secondary.dimensions));
+          sim_history = msg->primary;
+          sim_backup = msg->secondary;
+          next = lookup_history_index(nxt_head);
+          memcpy(next.register_file, previous.register_file, sizeof(RegisterFile));
+
+          Model pm = {
+            .dimensions = previous.dimensions,
+            .register_file = previous.register_file,
+            .memory = previous.memory,
+          };
+
+          Model nm = {
+            .dimensions = next.dimensions,
+            .register_file = next.register_file,
+            .memory = next.memory,
+          };
+
+          for (Index y = 0; y < MIN(previous.dimensions.y, next.dimensions.y); y++) {
+            for (Index x = 0; x < MIN(previous.dimensions.x, next.dimensions.x); x++) {
+              MODEL_INDEX(&nm, x, y) = MODEL_INDEX(&pm, x, y);
+            }
+          }
         } break;
 
       default: { }
@@ -522,6 +550,11 @@ Void sim_step(F32* audio_out, Index frames)
     const Index residue = sim_frame % period;
     const Index delta = MIN(period - residue, frames - elapsed);
     if (residue == 0) {
+      Model model = {
+        .dimensions = sim_history.dimensions,
+        .register_file = next.register_file,
+        .memory = next.memory,
+      };
       sim_step_model(&model, next.graph);
     }
     sim_partial_step(audio_out + STEREO * elapsed, delta);

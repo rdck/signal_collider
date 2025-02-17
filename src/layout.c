@@ -7,7 +7,6 @@
 #define OPERATOR_DESCRIPTION_LINES 3
 
 #define MEMORY_CHARACTERS 16
-#define TEMPO_CHARACTERS 9
 
 typedef struct UIContext {
   V2F origin;
@@ -304,12 +303,14 @@ static Void write_interaction_rectangle(InteractionArena* arena, InteractionRect
   }
 }
 
-static R2F map_tile(V2F camera, S32 tile_size, V2S origin, V2S point)
+static R2F map_tile(V2F camera, F32 zoom, S32 tile_size, V2S origin, V2S map_pixels, V2S point)
 {
-  const V2F tile = { (F32) tile_size, (F32) tile_size };
+  // const V2F tile = { zoom * tile_size, zoom * tile_size };
+  const V2F tile = { 1.f * tile_size, 1.f * tile_size };
   const V2F relative = v2f_sub(v2f_of_v2s(point), camera);
+  const V2F half = v2f_div(v2f_of_v2s(map_pixels), v2f(2.f, 2.f));
   const R2F out = {
-    .origin = v2f_add(v2f_of_v2s(origin), v2f_mul(relative, tile)),
+    .origin = v2f_add(v2f_add(v2f_of_v2s(origin), v2f_mul(relative, tile)), half),
     .size = tile,
   };
   return out;
@@ -414,7 +415,7 @@ Void layout(
 
   const S32 menu_height = font_small.y + 2 * PADDING;
   const S32 panel_width = LAYOUT_PANEL_CHARACTERS * font_small.x;
-  const S32 tile_size = MAX(font_large.x, font_large.y);
+  const F32 tile_size = ui->zoom * MAX(font_large.x, font_large.y);
 
   const V2S map_origin = {
     .x = panel_width,
@@ -431,12 +432,16 @@ Void layout(
   };
 
   const Index graph_size = GRAPH_FACTOR * model->dimensions.x * model->dimensions.y;
+  const V2S map_pixels = {
+    window.x - 2 * panel_width,
+    window.y - 2 * menu_height,
+  };
 
   // draw graph highlights
   for (Index i = 0; i < graph_size; i++) {
     const GraphEdge edge = graph[i];
     if (edge.tag == GRAPH_EDGE_INPUT) {
-      const R2F area = map_tile(camera, tile_size, map_origin, edge.target);
+      const R2F area = map_tile(camera, ui->zoom, tile_size, map_origin, map_pixels, edge.target);
       write_draw_rectangle(
           draw,
           draw_rectangle(area, color_input, white));
@@ -449,11 +454,11 @@ Void layout(
 
       const Value value = MODEL_INDEX(model, x, y);
       const Char tag_character = representation_table[value.tag];
-      const R2F area = map_tile(camera, tile_size, map_origin, v2s(x, y));
-      const F32 padding = (tile_size - font_large.x) / 2.f; // assumes font is taller than wide
+      const R2F area = map_tile(camera, ui->zoom, tile_size, map_origin, map_pixels, v2s(x, y));
+      const F32 padding = (tile_size - ui->zoom * font_large.x) / 2.f; // assumes font is taller than wide
       const R2F centered = {
         .origin = { area.origin.x + padding, area.origin.y },
-        .size = v2f_of_v2s(font_large),
+        .size = v2f_scale(v2f_of_v2s(font_large), ui->zoom),
       };
 
       if (value.tag == VALUE_LITERAL) {
@@ -491,8 +496,25 @@ Void layout(
 
   // draw map cursor highlight
   {
-    const R2F area = map_tile(camera, tile_size, map_origin, ui->cursor);
-    write_draw_rectangle(draw, draw_rectangle(area, color_cursor, white));
+    const R2F area = map_tile(camera, ui->zoom, tile_size, map_origin, map_pixels, ui->cursor);
+    const F32 width = 3.f * ui->zoom;
+    R2F line;
+
+    line.origin = area.origin;
+    line.size = v2f(width, area.size.y);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = v2f_add(area.origin, v2f(area.size.x, 0.f));
+    line.size = v2f(width, area.size.y);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = v2f_add(area.origin, v2f(0.f, area.size.y));
+    line.size = v2f(area.size.x + width, width);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
+
+    line.origin = area.origin;
+    line.size = v2f(area.size.x + width, width);
+    write_draw_rectangle(draw, draw_rectangle(line, color_white, white));
   }
 
   // draw sample panel background
@@ -613,6 +635,7 @@ Void layout(
   }
 
   // reset text drawing context
+  S32 anchor = 0;
   context.origin.x = PADDING;
   context.origin.y = (F32) (window.y - menu_height + PADDING);
   context.cursor = v2s(0, 0);
@@ -621,7 +644,7 @@ Void layout(
   {
     const R2F area = {
       .origin = {
-        (F32) PADDING,
+        (F32) (anchor * font_small.x + PADDING),
         (F32) (window.y - menu_height + PADDING),
       },
       .size = {
@@ -629,7 +652,6 @@ Void layout(
         (F32) font_small.y,
       },
     };
-    reset_ui_context(&context, area.origin, v2s(999, 999));
     Char memory_buffer[MEMORY_CHARACTERS] = {0};
     if (ui->interaction == INTERACTION_MEMORY_DIMENSIONS) {
       SDL_snprintf(memory_buffer, MEMORY_CHARACTERS, "%s|", ui->text);
@@ -637,7 +659,7 @@ Void layout(
     } else {
       SDL_snprintf(
           memory_buffer,
-          TEMPO_CHARACTERS,
+          MEMORY_CHARACTERS,
           "%dx%d",
           model->dimensions.x,
           model->dimensions.y);
@@ -648,25 +670,42 @@ Void layout(
         interaction_generic(INTERACTION_TAG_MEMORY_DIMENSIONS, area));
   }
 
+  anchor += MEMORY_CHARACTERS;
+  context.cursor.x = anchor;
+
+  // draw cursor coordinate
+  {
+    Char memory_buffer[MEMORY_CHARACTERS] = {0};
+    SDL_snprintf(
+        memory_buffer,
+        MEMORY_CHARACTERS,
+        "%dx%d",
+        ui->cursor.x,
+        ui->cursor.y);
+    draw_text(draw, &context, memory_buffer, font_small);
+  }
+
+  anchor += MEMORY_CHARACTERS;
+  context.cursor.x = anchor;
+
   // draw tempo
   {
     const R2F area = {
       .origin = {
-        (F32) (MEMORY_CHARACTERS * font_small.x + PADDING),
+        (F32) (anchor * font_small.x + PADDING),
         (F32) (window.y - menu_height + PADDING),
       },
       .size = {
-        (F32) (TEMPO_CHARACTERS * font_small.x),
+        (F32) (MEMORY_CHARACTERS * font_small.x),
         (F32) font_small.y,
       },
     };
-    reset_ui_context(&context, area.origin, v2s(999, 999));
-    Char tempo_buffer[TEMPO_CHARACTERS] = {0};
+    Char tempo_buffer[MEMORY_CHARACTERS] = {0};
     if (ui->interaction == INTERACTION_TEMPO) {
-      SDL_snprintf(tempo_buffer, TEMPO_CHARACTERS, "%s|", ui->text);
+      SDL_snprintf(tempo_buffer, MEMORY_CHARACTERS, "%s|", ui->text);
       draw_text(draw, &context, tempo_buffer, font_small);
     } else {
-      SDL_snprintf(tempo_buffer, TEMPO_CHARACTERS, "%dbpm", dsp->tempo);
+      SDL_snprintf(tempo_buffer, MEMORY_CHARACTERS, "%dbpm", dsp->tempo);
       draw_text(draw, &context, tempo_buffer, font_small);
     }
     write_interaction_rectangle(interaction, interaction_tempo(area));

@@ -12,6 +12,13 @@ ATOMIC_QUEUE_TYPE(Index) allocation_queue = {0};
 ATOMIC_QUEUE_TYPE(Index) free_queue = {0};
 ATOMIC_QUEUE_TYPE(ControlMessage) control_queue = {0};
 
+ControlMessage control_message_generic(ControlMessageTag tag)
+{
+  ControlMessage message;
+  message.tag = tag;
+  return message;
+}
+
 ControlMessage control_message_write(V2S point, Value value)
 {
   ControlMessage message;
@@ -52,5 +59,12 @@ ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHist
   message.tag = CONTROL_MESSAGE_MEMORY_RESIZE;
   message.resize.primary = primary;
   message.resize.secondary = secondary;
+  return message;
+}
+
+ControlMessage control_message_clear()
+{
+  ControlMessage message;
+  message.tag = CONTROL_MESSAGE_CLEAR;
   return message;
 }

@@ -16,7 +16,7 @@
 
 // default grid size
 #define MODEL_DEFAULT_X 0x40
-#define MODEL_DEFAULT_Y 0x24
+#define MODEL_DEFAULT_Y 0x40
 
 // the maximum number of graph edges we expect per tile
 #define GRAPH_FACTOR 8

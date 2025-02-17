@@ -17,7 +17,7 @@
 #include <emscripten/webaudio.h>
 #include <emscripten/em_math.h>
 #define AUDIO_THREAD_STACK 0x1000
-#define NODE_NAME "Clavier-36"
+#define NODE_NAME "CLAVIER-36"
 #endif
 
 #include "sim.h"
@@ -32,14 +32,14 @@
 #include "stb_image_write.h"
 #endif
 
-#define WINDOW_TITLE "Clavier-36"
-#define MANUAL_URL "https://github.com/rdck/Clavier-36"
+#define WINDOW_TITLE "CLAVIER-36"
+#define MANUAL_URL "https://github.com/rdck/CLAVIER-36"
 
 // The starting window size will be a scalar multiple of this.
 #define ATOM_X 320
 #define ATOM_Y 180
 
-#define FONT_SIZE_LARGE 32 // in pixels
+#define FONT_SIZE_LARGE 42 // in pixels
 #define FONT_SIZE_SMALL 20 // in pixels
 
 // font atlas parameters
@@ -75,7 +75,11 @@ static Font font_large = {0};
 static Texture waveforms[MODEL_RADIX] = {0};
 
 static ProgramHistory program_history = {0};
-static UIState ui = {0};
+static UIState ui = {
+  .cursor = { MODEL_DEFAULT_X / 2, MODEL_DEFAULT_Y / 2 },
+  .camera = { MODEL_DEFAULT_X / 2.f, MODEL_DEFAULT_Y / 2.f },
+  .zoom = 1.f,
+};
 static RenderMetrics metrics = {0};
 
 static Index render_index = 0;
@@ -676,10 +680,10 @@ static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F m
   layout(draw, interaction, &ui, &layout_parameters);
 }
 
-static Void clear_text_interaction(UIState* ui)
+static Void clear_text_interaction(UIState* state)
 {
-  memset(ui->text, 0, sizeof(ui->text));
-  ui->text_head = 0;
+  memset(state->text, 0, sizeof(state->text));
+  state->text_head = 0;
 }
 
 static SDL_AppResult event_handler(const SDL_Event* event)
@@ -782,8 +786,13 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                 case SDLK_DOWN:
                   update_cursor(DIRECTION_SOUTH);
                   break;
-                case SDLK_SPACE:
+                case SDLK_RETURN:
                   ATOMIC_QUEUE_ENQUEUE(ControlMessage)(&control_queue, control_message_power(ui.cursor));
+                  break;
+                case SDLK_SPACE:
+                  ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                      &control_queue,
+                      control_message_generic(CONTROL_MESSAGE_PAUSE));
                   break;
                 case SDLK_BACKSPACE:
                   input_value(ui.cursor, value_none);
@@ -844,6 +853,9 @@ static SDL_AppResult event_handler(const SDL_Event* event)
               if (sound_scroll) {
                 ui.scroll -= event->wheel.y / 8.f;
                 ui.scroll = CLAMP(0.f, 1.f, ui.scroll);
+              } else if (hover && hover->tag == INTERACTION_TAG_MAP) {
+                ui.zoom += event->wheel.y / 20.f;
+                ui.zoom = CLAMP(0.25f, 1.f, ui.zoom);
               }
             } break;
 
@@ -921,6 +933,12 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                           case FILE_MENU_EXIT:
                             {
                               status = SDL_APP_SUCCESS;
+                            } break;
+                          case FILE_MENU_NEW:
+                            {
+                              ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                  &control_queue,
+                                  control_message_generic(CONTROL_MESSAGE_CLEAR));
                             } break;
                         }
                       } break;

@@ -31,6 +31,8 @@ typedef enum ControlMessageTag {
   CONTROL_MESSAGE_SOUND,
   CONTROL_MESSAGE_TEMPO,
   CONTROL_MESSAGE_MEMORY_RESIZE,
+  CONTROL_MESSAGE_CLEAR,
+  CONTROL_MESSAGE_PAUSE,
   CONTROL_MESSAGE_CARDINAL,
 } ControlMessageTag;
 
@@ -45,6 +47,7 @@ typedef struct ControlMessage {
   };
 } ControlMessage;
 
+ControlMessage control_message_generic(ControlMessageTag tag);
 ControlMessage control_message_write(V2S point, Value value);
 ControlMessage control_message_power(V2S point);
 ControlMessage control_message_sound(S32 slot, Sound sound);

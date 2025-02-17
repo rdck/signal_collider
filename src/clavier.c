@@ -856,7 +856,6 @@ static SDL_AppResult event_handler(const SDL_Event* event)
               } else if (hover && hover->tag == INTERACTION_TAG_MAP) {
                 ui.zoom += event->wheel.y / 20.f;
                 ui.zoom = CLAMP(0.25f, 1.f, ui.zoom);
-                SDL_Log("zoom: %f", ui.zoom);
               }
             } break;
 

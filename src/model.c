@@ -355,7 +355,7 @@ Void model_step(Model* m, GraphEdge* graph_root)
               const Value lhs = record_read(m, &g, origin, v2s(2, 0), value.tag, ATTRIBUTE_LEFT_DISJUNCT);
               const Value rhs = record_read(m, &g, origin, v2s(1, 0), value.tag, ATTRIBUTE_RIGHT_DISJUNCT);
               if (lhs.tag == VALUE_LITERAL && rhs.tag == VALUE_LITERAL) {
-                const Value output = value_literal(lhs.literal | rhs.literal);
+                const Value output = value_literal((lhs.literal | rhs.literal) % MODEL_RADIX);
                 record_write(m, &g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, output);
               } else if (lhs.tag != VALUE_NONE || rhs.tag != VALUE_NONE) {
                 record_write(m, &g, origin, v2s(0, 1), value.tag, ATTRIBUTE_OUTPUT, value_bang);

@@ -6,7 +6,7 @@
 #include "model.h"
 #include "rectangle.h"
 
-#define LAYOUT_DRAW_RECTANGLES 0x8000
+#define LAYOUT_DRAW_RECTANGLES 0xC000
 #define LAYOUT_INTERACTION_RECTANGLES 0x1000
 #define LAYOUT_PANEL_CHARACTERS 40
 #define LAYOUT_TEXT_INPUT 64
@@ -82,6 +82,7 @@ typedef struct UIState {
 
   // camera position, in tiles
   V2F camera;
+  F32 zoom;
 
   // sound scrollbar
   F32 scroll;

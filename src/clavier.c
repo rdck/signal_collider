@@ -75,7 +75,11 @@ static Font font_large = {0};
 static Texture waveforms[MODEL_RADIX] = {0};
 
 static ProgramHistory program_history = {0};
-static UIState ui = {0};
+static UIState ui = {
+  .cursor = { MODEL_DEFAULT_X / 2, MODEL_DEFAULT_Y / 2 },
+  .camera = { MODEL_DEFAULT_X / 2.f, MODEL_DEFAULT_Y / 2.f },
+  .zoom = 1.f,
+};
 static RenderMetrics metrics = {0};
 
 static Index render_index = 0;
@@ -676,10 +680,10 @@ static Void compute_layout(DrawArena* draw, InteractionArena* interaction, V2F m
   layout(draw, interaction, &ui, &layout_parameters);
 }
 
-static Void clear_text_interaction(UIState* ui)
+static Void clear_text_interaction(UIState* state)
 {
-  memset(ui->text, 0, sizeof(ui->text));
-  ui->text_head = 0;
+  memset(state->text, 0, sizeof(state->text));
+  state->text_head = 0;
 }
 
 static SDL_AppResult event_handler(const SDL_Event* event)
@@ -844,6 +848,10 @@ static SDL_AppResult event_handler(const SDL_Event* event)
               if (sound_scroll) {
                 ui.scroll -= event->wheel.y / 8.f;
                 ui.scroll = CLAMP(0.f, 1.f, ui.scroll);
+              } else if (hover && hover->tag == INTERACTION_TAG_MAP) {
+                ui.zoom += event->wheel.y / 20.f;
+                ui.zoom = CLAMP(0.25f, 1.f, ui.zoom);
+                SDL_Log("zoom: %f", ui.zoom);
               }
             } break;
 

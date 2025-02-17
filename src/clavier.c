@@ -39,7 +39,7 @@
 #define ATOM_X 320
 #define ATOM_Y 180
 
-#define FONT_SIZE_LARGE 32 // in pixels
+#define FONT_SIZE_LARGE 42 // in pixels
 #define FONT_SIZE_SMALL 20 // in pixels
 
 // font atlas parameters

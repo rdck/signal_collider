@@ -17,7 +17,7 @@
 #include <emscripten/webaudio.h>
 #include <emscripten/em_math.h>
 #define AUDIO_THREAD_STACK 0x1000
-#define NODE_NAME "Clavier-36"
+#define NODE_NAME "CLAVIER-36"
 #endif
 
 #include "sim.h"
@@ -32,8 +32,8 @@
 #include "stb_image_write.h"
 #endif
 
-#define WINDOW_TITLE "Clavier-36"
-#define MANUAL_URL "https://github.com/rdck/Clavier-36"
+#define WINDOW_TITLE "CLAVIER-36"
+#define MANUAL_URL "https://github.com/rdck/CLAVIER-36"
 
 // The starting window size will be a scalar multiple of this.
 #define ATOM_X 320

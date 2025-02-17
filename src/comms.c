@@ -46,10 +46,11 @@ ControlMessage control_message_tempo(S32 tempo)
   return message;
 }
 
-ControlMessage control_message_memory_resize(V2S dimensions)
+ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHistory secondary)
 {
   ControlMessage message;
   message.tag = CONTROL_MESSAGE_MEMORY_RESIZE;
-  message.dimensions = dimensions;
+  message.resize.primary = primary;
+  message.resize.secondary = secondary;
   return message;
 }

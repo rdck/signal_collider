@@ -639,8 +639,8 @@ Void layout(
           memory_buffer,
           TEMPO_CHARACTERS,
           "%dx%d",
-          dsp->memory_dimensions.x,
-          dsp->memory_dimensions.y);
+          model->dimensions.x,
+          model->dimensions.y);
       draw_text(draw, &context, memory_buffer, font_small);
     }
     write_interaction_rectangle(

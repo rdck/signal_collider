@@ -183,7 +183,6 @@ typedef struct DSPSamplerVoice {
 // @rdk: This shouldn't be defined here.
 typedef struct DSPState {
   S32 tempo;
-  V2S memory_dimensions;
   DSPSamplerVoice voices[SIM_VOICES];
 } DSPState;
 

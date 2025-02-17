@@ -19,6 +19,11 @@ typedef struct SoundMessage {
   Sound sound;
 } SoundMessage;
 
+typedef struct ResizeMessage {
+  ProgramHistory primary;
+  ProgramHistory secondary;
+} ResizeMessage;
+
 typedef enum ControlMessageTag {
   CONTROL_MESSAGE_NONE,
   CONTROL_MESSAGE_WRITE,
@@ -35,8 +40,8 @@ typedef struct ControlMessage {
     WriteMessage write;
     PowerMessage power;
     SoundMessage sound;
+    ResizeMessage resize;
     S32 tempo;
-    V2S dimensions;
   };
 } ControlMessage;
 
@@ -44,7 +49,7 @@ ControlMessage control_message_write(V2S point, Value value);
 ControlMessage control_message_power(V2S point);
 ControlMessage control_message_sound(S32 slot, Sound sound);
 ControlMessage control_message_tempo(S32 tempo);
-ControlMessage control_message_memory_resize(V2S dimensions);
+ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHistory secondary);
 
 #define ATOMIC_QUEUE_ELEMENT Index
 #define ATOMIC_QUEUE_INTERFACE

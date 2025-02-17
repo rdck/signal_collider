@@ -231,14 +231,14 @@ static Void SDLCALL clavier_audio(
 
 #endif
 
-static ProgramHistory allocate_history(V2S dimensions)
+static ProgramHistory allocate_history(S32 length, V2S dimensions)
 {
   ProgramHistory history;
   history.dimensions = dimensions;
   const S32 area = dimensions.x * dimensions.y;
-  history.register_file = SDL_calloc(SIM_HISTORY, sizeof(RegisterFile));
-  history.memory = SDL_calloc(SIM_HISTORY, area * sizeof(Value));
-  history.graph = SDL_calloc(SIM_HISTORY, GRAPH_FACTOR * area * sizeof(GraphEdge));
+  history.register_file = SDL_calloc(length, sizeof(RegisterFile));
+  history.memory = SDL_calloc(length, area * sizeof(Value));
+  history.graph = SDL_calloc(length, GRAPH_FACTOR * area * sizeof(GraphEdge));
   ASSERT(history.register_file);
   ASSERT(history.memory);
   ASSERT(history.graph);
@@ -597,8 +597,10 @@ SDL_AppResult SDL_AppInit(Void** state, S32 argc, Char** argv)
   ATOMIC_QUEUE_INIT(Index)(&free_queue, free_queue_buffer, MESSAGE_QUEUE_CAPACITY);
   ATOMIC_QUEUE_INIT(ControlMessage)(&control_queue, control_queue_buffer, MESSAGE_QUEUE_CAPACITY);
 
-  program_history = allocate_history(v2s(MODEL_DEFAULT_X, MODEL_DEFAULT_Y));
-  sim_init(program_history);
+  const V2S dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
+  program_history = allocate_history(SIM_HISTORY, dimensions);
+  const ProgramHistory secondary = allocate_history(1, dimensions);
+  sim_init(program_history, secondary);
 
   Model model = {
     .dimensions = program_history.dimensions,
@@ -974,9 +976,12 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                             const S32 x = SDL_atoi(xstr);
                             const S32 y = SDL_atoi(ystr);
                             if (x > 0 && y > 0) {
+                              const V2S dimensions = { x, y };
+                              program_history = allocate_history(SIM_HISTORY, dimensions);
+                              const ProgramHistory secondary = allocate_history(1, dimensions);
                               ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
                                   &control_queue,
-                                  control_message_memory_resize(v2s(x, y)));
+                                  control_message_memory_resize(program_history, secondary));
                             }
                           }
                         } break;

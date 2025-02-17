@@ -70,6 +70,7 @@ static Sound sim_palette[MODEL_RADIX] = {0};
 
 // history pointers
 static ProgramHistory sim_history = {0};
+static ProgramHistory sim_backup = {0};
 
 // index into model history
 static Index sim_head = 0;
@@ -84,7 +85,6 @@ static F32 sim_reverb_mix = 0.12f;
 static F32 sim_envelope_coefficient = 0.0001f;
 static F32 sim_envelope_exponent = 0.3f;
 static S32 sim_tempo = 80;
-static V2S sim_dimensions = { MODEL_DEFAULT_X, MODEL_DEFAULT_Y };
 
 // synth voice data
 static SynthVoice sim_synth_voices[SIM_VOICES] = {0};
@@ -108,6 +108,24 @@ _Static_assert(
     MODEL_RADIX == PALETTE_SOUNDS,
     "invalid palette size"
     );
+
+static ProgramHistory lookup_history_index(Index index)
+{
+  const Index area = sim_history.dimensions.x * sim_history.dimensions.y;
+  ProgramHistory program;
+  program.dimensions = sim_history.dimensions;
+  if (index >= 0) {
+    // @rdk: Pull this logic out, to be shared with clavier module.
+    program.register_file   = &sim_history.register_file[index];
+    program.memory          = &sim_history.memory[index * area];
+    program.graph           = &sim_history.graph[index * GRAPH_FACTOR * area];
+  } else {
+    program.register_file   = sim_backup.register_file;
+    program.memory          = sim_backup.memory;
+    program.graph           = sim_backup.graph;
+  }
+  return program;
+}
 
 static Index bpm_to_period(S32 tempo)
 {
@@ -177,25 +195,17 @@ static Void clear_sampler_voice(Index index)
   }
 }
 
-static Void sim_step_model()
+static Void sim_step_model(Model* m, GraphEdge* graph)
 {
-  const Index area = sim_dimensions.x * sim_dimensions.y;
-  Model model = {
-    .dimensions = sim_dimensions,
-    .register_file = &sim_history.register_file[sim_head],
-    .memory = &sim_history.memory[sim_head * area],
-  };
-  Model* const m = &model;
-
-  GraphEdge* const graph_root = &sim_history.graph[sim_head * GRAPH_FACTOR * area];
-  model_step(m, graph_root);
+  // const Index area = sim_history.dimensions.x * sim_history.dimensions.y;
+  model_step(m, graph);
 
   // shorthand
   const V2S west = unit_vector(DIRECTION_WEST);
 
   // process synth events
-  for (Index y = 0; y < sim_dimensions.y; y++) {
-    for (Index x = 0; x < sim_dimensions.x; x++) {
+  for (Index y = 0; y < sim_history.dimensions.y; y++) {
+    for (Index x = 0; x < sim_history.dimensions.x; x++) {
 
       const V2S origin = { (S32) x, (S32) y };
       const Value value = MODEL_INDEX(m, x, y);
@@ -424,6 +434,151 @@ Void sim_step(F32* audio_out, Index frames)
   // clear the output buffer
   memset(audio_out, 0, STEREO * frames * sizeof(F32));
 
+  Index nxt_head = INDEX_NONE;
+  if (ATOMIC_QUEUE_LENGTH(Index)(&free_queue) > 0) {
+    const Index sentinel = -1;
+    nxt_head = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
+    ASSERT(nxt_head != sentinel);
+  }
+
+  const ProgramHistory last = lookup_history_index(sim_head);
+  const ProgramHistory next = lookup_history_index(nxt_head);
+  const Index area = sim_history.dimensions.x * sim_history.dimensions.y;
+
+  if (last.memory != next.memory) {
+    memcpy(next.register_file , last.register_file  , sizeof(RegisterFile));
+    memcpy(next.memory        , last.memory         , area * sizeof(Value));
+    memcpy(next.graph         , last.graph          , GRAPH_FACTOR * area * sizeof(GraphEdge));
+  }
+
+  // the current model
+  Model model = {
+    .dimensions = sim_history.dimensions,
+    .register_file = next.register_file,
+    .memory = next.memory,
+  };
+
+  // the current dsp state
+  DSPState backup_dsp = {0};
+  DSPState* const dsp_state = nxt_head >= 0 ? &dsp_history[nxt_head] : &backup_dsp;
+
+  // process input messages
+  while (ATOMIC_QUEUE_LENGTH(ControlMessage)(&control_queue) > 0) {
+
+    // pull a message off the queue
+    ControlMessage sentinel = {0};
+    const ControlMessage message = ATOMIC_QUEUE_DEQUEUE(ControlMessage)(&control_queue, sentinel);
+    ASSERT(message.tag != CONTROL_MESSAGE_NONE);
+
+    // process the message
+    switch (message.tag) {
+
+      case CONTROL_MESSAGE_WRITE:
+        {
+          model_set(&model, message.write.point, message.write.value);
+        } break;
+
+      case CONTROL_MESSAGE_POWER:
+        {
+          const V2S c = message.power.point;
+          Value* const value = &MODEL_INDEX(&model, c.x, c.y);
+          if (is_operator(*value)) {
+            value->powered = ! value->powered;
+          }
+        } break;
+
+      case CONTROL_MESSAGE_SOUND:
+        {
+          // @rdk: We should send a message back to the render thread to free
+          // unused audio data.
+          ASSERT(message.sound.slot >= 0);
+          ASSERT(message.sound.sound.frames > 0);
+          ASSERT(message.sound.sound.samples);
+          sim_palette[message.sound.slot] = message.sound.sound;
+        } break;
+
+      case CONTROL_MESSAGE_TEMPO:
+        {
+          ASSERT(message.tempo > 0);
+          sim_tempo = message.tempo;
+        } break;
+
+      case CONTROL_MESSAGE_MEMORY_RESIZE:
+        {
+          // ASSERT(message.resize.dimensions.x > 0);
+          // ASSERT(message.resize.dimensions.y > 0);
+        } break;
+
+      default: { }
+
+    }
+
+  }
+
+  // compute the audio for this period
+  const Index period = bpm_to_period(sim_tempo);
+  Index elapsed = 0;
+  while (elapsed < frames) {
+    const Index residue = sim_frame % period;
+    const Index delta = MIN(period - residue, frames - elapsed);
+    if (residue == 0) {
+      sim_step_model(&model, next.graph);
+    }
+    sim_partial_step(audio_out + STEREO * elapsed, delta);
+    elapsed += delta;
+  }
+
+  // reverberate
+  if (sim_reverb_status) {
+    for (Index i = 0; i < frames; i++) {
+      F32 lhs, rhs;
+      sk_bigverb_tick(sim_bigverb, audio_out[2 * i + 0], audio_out[2 * i + 1], &lhs, &rhs);
+      const F32 lhs_dry = (1.f - sim_reverb_mix) * audio_out[2 * i + 0];
+      const F32 rhs_dry = (1.f - sim_reverb_mix) * audio_out[2 * i + 1];
+      const F32 lhs_wet = sim_reverb_mix * lhs;
+      const F32 rhs_wet = sim_reverb_mix * rhs;
+      audio_out[2 * i + 0] = lhs_dry + lhs_wet;
+      audio_out[2 * i + 1] = rhs_dry + rhs_wet;
+    }
+  }
+
+  // attenuate
+  for (Index i = 0; i < frames; i++) {
+    audio_out[2 * i + 0] *= sim_global_volume;
+    audio_out[2 * i + 1] *= sim_global_volume;
+  }
+
+  // write dsp visualization data
+  dsp_state->tempo = sim_tempo;
+  for (Index i = 0; i < SIM_VOICES; i++) {
+    const SamplerVoice* const voice = &sim_sampler_voices[i];
+    if (voice->sound != INDEX_NONE) {
+      const Index length = sim_palette[voice->sound].frames;
+      dsp_state->voices[i].active = true;
+      dsp_state->voices[i].sound = voice->sound;
+      dsp_state->voices[i].frame = sim_sampler_voice_frame(voice, length);
+      dsp_state->voices[i].length = length;
+    } else {
+      dsp_state->voices[i].active = false;
+      dsp_state->voices[i].frame = 0;
+      dsp_state->voices[i].length = 0;
+      dsp_state->voices[i].sound = INDEX_NONE;
+    }
+  }
+
+  // update shared pointer
+  if (nxt_head >= 0) {
+    ATOMIC_QUEUE_ENQUEUE(Index)(&allocation_queue, nxt_head);
+  }
+  sim_head = nxt_head;
+}
+
+#if 0
+Void sim_step(F32* audio_out, Index frames)
+{
+  // clear the output buffer
+  memset(audio_out, 0, STEREO * frames * sizeof(F32));
+
   if (ATOMIC_QUEUE_LENGTH(Index)(&free_queue) > 0) {
 
     // pull the next slot off the queue
@@ -431,7 +586,7 @@ Void sim_step(F32* audio_out, Index frames)
     const Index slot = ATOMIC_QUEUE_DEQUEUE(Index)(&free_queue, sentinel);
     ASSERT(slot != sentinel);
 
-    const Index area = sim_dimensions.x * sim_dimensions.y;
+    const Index area = sim_history.dimensions.x * sim_history.dimensions.y;
 
     // copy memory
     Value* const memory_dst = &sim_history.memory[slot * area];
@@ -451,7 +606,7 @@ Void sim_step(F32* audio_out, Index frames)
 
     // the current model
     Model model = {
-      .dimensions = sim_dimensions,
+      .dimensions = sim_history.dimensions,
       .register_file = &sim_history.register_file[sim_head],
       .memory = memory_dst,
     };
@@ -503,9 +658,9 @@ Void sim_step(F32* audio_out, Index frames)
 
         case CONTROL_MESSAGE_MEMORY_RESIZE:
           {
-            ASSERT(message.dimensions.x > 0);
-            ASSERT(message.dimensions.y > 0);
-            SDL_Log("resize: %dx%d", message.dimensions.x, message.dimensions.y);
+            // ASSERT(message.resize.dimensions.x > 0);
+            // ASSERT(message.resize.dimensions.y > 0);
+            // SDL_Log("resize: %dx%d", message.resize.dimensions.x, message.resize.dimensions.y);
           } break;
 
         default: { }
@@ -516,7 +671,6 @@ Void sim_step(F32* audio_out, Index frames)
 
     // write dsp visualization data
     dsp_state->tempo = sim_tempo;
-    dsp_state->memory_dimensions = sim_dimensions;
     for (Index i = 0; i < SIM_VOICES; i++) {
       const SamplerVoice* const voice = &sim_sampler_voices[i];
       if (voice->sound != INDEX_NONE) {
@@ -571,10 +725,12 @@ Void sim_step(F32* audio_out, Index frames)
 
   }
 }
+#endif
 
-Void sim_init(ProgramHistory history)
+Void sim_init(ProgramHistory primary, ProgramHistory secondary)
 {
-  sim_history = history;
+  sim_history = primary;
+  sim_backup = secondary;
 
   // initialize midi subsystem
   platform_midi_init();

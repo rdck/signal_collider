@@ -537,6 +537,16 @@ Void sim_step(F32* audio_out, Index frames)
           }
         } break;
 
+      case CONTROL_MESSAGE_CLEAR:
+        {
+          Model model = {
+            .dimensions = sim_history.dimensions,
+            .register_file = next.register_file,
+            .memory = next.memory,
+          };
+          model_init(&model);
+        } break;
+
       default: { }
 
     }

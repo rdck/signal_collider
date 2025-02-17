@@ -54,3 +54,10 @@ ControlMessage control_message_memory_resize(ProgramHistory primary, ProgramHist
   message.resize.secondary = secondary;
   return message;
 }
+
+ControlMessage control_message_clear()
+{
+  ControlMessage message;
+  message.tag = CONTROL_MESSAGE_CLEAR;
+  return message;
+}

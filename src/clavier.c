@@ -930,6 +930,12 @@ static SDL_AppResult event_handler(const SDL_Event* event)
                             {
                               status = SDL_APP_SUCCESS;
                             } break;
+                          case FILE_MENU_NEW:
+                            {
+                              ATOMIC_QUEUE_ENQUEUE(ControlMessage)(
+                                  &control_queue,
+                                  control_message_clear());
+                            } break;
                         }
                       } break;
                     case MENU_HELP:
